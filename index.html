@@ -631,6 +631,7 @@
                 <button class="cbtn crop on" data-crop="full"  onclick="cmpCropSet('full')">全体</button>
                 <button class="cbtn crop"    data-crop="left"  onclick="cmpCropSet('left')">左半分</button>
                 <button class="cbtn crop"    data-crop="right" onclick="cmpCropSet('right')">右半分</button>
+                <button class="cbtn on" id="cmp-cap" onclick="cmpCapTgl()">🏷 型名</button>
             </div>
             <div class="cmp-row">
                 <span class="cmp-cap">自分:</span>
@@ -2242,22 +2243,18 @@ function cmpDrawPose(ctx,ls,W,H,status){
         ctx.lineWidth=1.2; ctx.arc(lm.x*W,lm.y*H,Math.max(2.5,W*0.011),0,2*Math.PI);
         ctx.fill(); ctx.stroke();
     }
-    // ズレている部位に印と一言を出す
+    // ズレている部位に印を付ける（文字は映像に重ねず、下の指摘バーに出す）
     if(status){
-        const R=Math.max(9,W*0.030);
-        for(const [name,st] of Object.entries(status)){
+        const R=Math.max(9,W*0.032);
+        for(const st of Object.values(status)){
             if(st.level===0||!st.pt) continue;
             const x=st.pt.x*W, y=st.pt.y*H, col=LV_COL[st.level];
-            ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=Math.max(2.5,W*0.007);
+            ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=Math.max(2.5,W*0.008);
             ctx.arc(x,y,R,0,2*Math.PI); ctx.stroke();
-            const label=`${name} ${st.adv}`;
-            ctx.font=`bold ${Math.max(11,Math.round(W*0.030))}px sans-serif`;
-            const tw=ctx.measureText(label).width;
-            let tx=x+R+6, ty=y+4;
-            if(tx+tw>W-4) tx=x-R-6-tw;          // 画面外にはみ出さない
-            ctx.fillStyle='rgba(0,0,0,.66)';
-            ctx.fillRect(tx-4,ty-Math.max(11,W*0.030),tw+8,Math.max(15,W*0.040));
-            ctx.fillStyle=col; ctx.fillText(label,tx,ty);
+            if(st.level===2){   // 大きくズレているものは二重丸で強調
+                ctx.beginPath(); ctx.lineWidth=Math.max(1.5,W*0.004);
+                ctx.arc(x,y,R*1.45,0,2*Math.PI); ctx.stroke();
+            }
         }
     }
 }
@@ -2288,6 +2285,24 @@ function cmpDrawGhost(ctx,lsT,lsM,W,H,tW,tH){
     ctx.restore();
 }
 
+// 先生の動画は背面側の左上に型名のテロップが入っている。
+// 左半分に切り出すとそれが切れてしまうので、その部分だけを転記して表示する。
+let cmpCaption=true;
+const CAP_RECT=[0.50,0.00,0.22,0.14];   // 元動画に対する [x, y, 幅, 高さ] の割合
+function cmpDrawCaption(ctx,v,W){
+    if(!cmpCaption||cmpCrop!=='left'||v.readyState<2) return;
+    const vw=v.videoWidth||1, vh=v.videoHeight||1;
+    const [rx,ry,rw,rh]=CAP_RECT;
+    const sx=rx*vw, sy=ry*vh, sw=rw*vw, sh=rh*vh;
+    const dw=W*0.46, dh=dw*(sh/sw);      // 左ペインの幅の46%で表示
+    ctx.save();
+    ctx.globalAlpha=0.95;
+    ctx.drawImage(v,sx,sy,sw,sh,4,4,dw,dh);
+    ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=1;
+    ctx.strokeRect(4,4,dw,dh);
+    ctx.restore();
+}
+
 // ── 先生動画の切り出し範囲を求める ──
 function cmpSrcRect(v){
     const w=v.videoWidth||1, h=v.videoHeight||1;
@@ -2312,6 +2327,7 @@ async function cmpLoop(){
             lsT=landmarker.detectForVideo(cl,cmpTs).landmarks?.[0]??null;
         }catch(e){}
         cmpDrawPose(ctxL,lsT,cl.width,cl.height);
+        cmpDrawCaption(ctxL,cmpVid,cl.width);   // 型名テロップを転記
         // シークバー・時刻
         if(cmpVid.duration&&!cmpSeekDrag){
             document.getElementById('cmp-seek').value=(cmpVid.currentTime/cmpVid.duration)*100;
@@ -2626,6 +2642,10 @@ window.cmpSlow=function cmpSlow(){
 window.cmpCropSet=function cmpCropSet(c){
     cmpCrop=c;
     document.querySelectorAll('.cbtn.crop').forEach(b=>b.classList.toggle('on',b.dataset.crop===c));
+};
+window.cmpCapTgl=function cmpCapTgl(){
+    cmpCaption=!cmpCaption;
+    document.getElementById('cmp-cap').classList.toggle('on',cmpCaption);
 };
 window.cmpGhostTgl=function cmpGhostTgl(){
     cmpGhost=!cmpGhost;
