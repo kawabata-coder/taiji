@@ -486,16 +486,23 @@
             text-align:center;padding:12px
         }
         /* 差分テーブル */
-        #cmp-diff{flex:0 0 auto;background:rgba(0,0,0,.88);padding:5px 6px}
-        #cmp-diff table{width:100%;border-collapse:collapse;font-size:11px}
-        #cmp-diff th{
-            font-size:9px;color:rgba(255,255,255,.45);font-weight:400;padding:1px 2px
+        #cmp-diff{flex:0 0 auto;background:rgba(0,0,0,.88);padding:6px 8px;min-height:42px}
+        #cmp-hints{
+            display:flex;flex-wrap:wrap;gap:5px;justify-content:center;align-items:center
         }
-        #cmp-diff td{padding:2px;text-align:center;color:rgba(255,255,255,.85)}
-        #cmp-diff td.nm{text-align:left;color:rgba(255,255,255,.55);font-size:10px}
-        .d-ok{color:#69f0ae;font-weight:700}
-        .d-mid{color:#ffd54f;font-weight:700}
-        .d-bad{color:#ff8a80;font-weight:700}
+        .hint{
+            display:inline-flex;align-items:center;gap:5px;
+            font-size:12px;padding:4px 10px;border-radius:14px;font-weight:600;
+            border:1.5px solid transparent
+        }
+        .hint.bad{background:rgba(255,82,82,.18);border-color:#ff5252;color:#ff8a80}
+        .hint.mid{background:rgba(255,213,79,.15);border-color:#ffd54f;color:#ffd54f}
+        .hint .adv{font-size:11px;font-weight:400;opacity:.85}
+        .hint-ok{
+            font-size:13px;color:#69f0ae;font-weight:700;
+            background:rgba(0,230,118,.15);padding:4px 14px;border-radius:14px
+        }
+        .hint-none{font-size:11px;color:rgba(255,255,255,.35)}
         /* 操作バー */
         #cmp-ctrl{
             flex:0 0 auto;display:flex;flex-wrap:wrap;gap:5px;
@@ -592,17 +599,18 @@
                 </div>
             </div>
             <div class="cmp-pane">
-                <div class="cmp-lbl">🧍 自分</div>
+                <div class="cmp-lbl">🧍 自分
+                    <span style="opacity:.65">｜<span style="color:#00e676">●</span>合
+                    <span style="color:#ffd54f">●</span>少しズレ
+                    <span style="color:#ff5252">●</span>大きくズレ
+                    <span style="color:#fff">┄</span>手本</span></div>
                 <canvas id="cmp-R" width="480" height="360"></canvas>
                 <div class="cmp-pose" id="cmp-R-pose">―</div>
             </div>
         </div>
 
         <div id="cmp-diff">
-            <table>
-                <tr><th>項目</th><th>先生</th><th>自分</th><th>差</th></tr>
-                <tbody id="cmp-diff-body"></tbody>
-            </table>
+            <div id="cmp-hints"><span class="hint-none">先生と自分の骨格が揃うと、違う部分だけをここに出します</span></div>
         </div>
 
         <div id="cmp-ctrl">
@@ -630,6 +638,7 @@
                 <button class="cbtn src"    data-src="file" onclick="cmpSetRight('file')">🎬 動画</button>
                 <button class="cbtn" id="cmp-mypick" onclick="pickMine()" style="display:none">📁 自分の動画を選ぶ</button>
                 <button class="cbtn" id="cmp-mir" onclick="cmpMirrorTgl()">🪞 反転</button>
+                <button class="cbtn on" id="cmp-ghost" onclick="cmpGhostTgl()">👻 手本を重ねる</button>
             </div>
             <div class="cmp-row" id="cmp-offrow" style="display:none">
                 <span class="cmp-cap">開始のズレ:</span>
@@ -2194,13 +2203,37 @@ const cmpCam=document.createElement('video');   // 自分のカメラ（非表�
 cmpCam.playsInline=true; cmpCam.autoplay=true; cmpCam.muted=true;
 
 // ── 骨格を任意のキャンバスに描く（比較モード専用の簡易版）──
-function cmpDrawPose(ctx,ls,W,H){
+const LV_COL=['#00e676','#ffd54f','#ff5252'];   // 合っている / 少しズレ / 大きくズレ
+
+// この骨がどの部位に属するか（毎フレーム参照するので定数として持つ）
+const BONE_PART=(()=>{
+    const key=(a,b)=>[a,b].sort((x,y)=>x-y).join('-');
+    return {
+        [key(K.RS,K.RE)]:'右肘', [key(K.RE,K.RW)]:'右肘',
+        [key(K.LS,K.LE)]:'左肘', [key(K.LE,K.LW)]:'左肘',
+        [key(K.RH,K.RK)]:'右膝', [key(K.RK,K.RA)]:'右膝',
+        [key(K.LH,K.LK)]:'左膝', [key(K.LK,K.LA)]:'左膝',
+        [key(K.LS,K.RS)]:'肩の傾き',
+        [key(K.LH,K.RH)]:'腰の傾き',
+    };
+})();
+const partOfBone=(ai,bi)=>BONE_PART[[ai,bi].sort((x,y)=>x-y).join('-')]??null;
+
+// status を渡すと、ズレの大きさに応じて骨を色分けする
+function cmpDrawPose(ctx,ls,W,H,status){
     if(!ls) return;
     ctx.lineCap='round';
     for(const [ai,bi,col] of BONES){
         const a=ls[ai],b=ls[bi];
         if(!a||!b||a.visibility<.35||b.visibility<.35) continue;
-        ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=Math.max(2,W*0.008);
+        let color=col, wide=1;
+        if(status){
+            const p=partOfBone(ai,bi), st=p?status[p]:null;
+            if(st){ color=LV_COL[st.level]; wide = st.level>0 ? 1.9 : 1; }
+            else  { color='rgba(255,255,255,.5)'; }
+        }
+        ctx.beginPath(); ctx.strokeStyle=color;
+        ctx.lineWidth=Math.max(2,W*0.008)*wide;
         ctx.moveTo(a.x*W,a.y*H); ctx.lineTo(b.x*W,b.y*H); ctx.stroke();
     }
     for(const i of Object.values(K)){
@@ -2209,6 +2242,50 @@ function cmpDrawPose(ctx,ls,W,H){
         ctx.lineWidth=1.2; ctx.arc(lm.x*W,lm.y*H,Math.max(2.5,W*0.011),0,2*Math.PI);
         ctx.fill(); ctx.stroke();
     }
+    // ズレている部位に印と一言を出す
+    if(status){
+        const R=Math.max(9,W*0.030);
+        for(const [name,st] of Object.entries(status)){
+            if(st.level===0||!st.pt) continue;
+            const x=st.pt.x*W, y=st.pt.y*H, col=LV_COL[st.level];
+            ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=Math.max(2.5,W*0.007);
+            ctx.arc(x,y,R,0,2*Math.PI); ctx.stroke();
+            const label=`${name} ${st.adv}`;
+            ctx.font=`bold ${Math.max(11,Math.round(W*0.030))}px sans-serif`;
+            const tw=ctx.measureText(label).width;
+            let tx=x+R+6, ty=y+4;
+            if(tx+tw>W-4) tx=x-R-6-tw;          // 画面外にはみ出さない
+            ctx.fillStyle='rgba(0,0,0,.66)';
+            ctx.fillRect(tx-4,ty-Math.max(11,W*0.030),tw+8,Math.max(15,W*0.040));
+            ctx.fillStyle=col; ctx.fillText(label,tx,ty);
+        }
+    }
+}
+
+// お手本の骨格を自分の体格・位置に合わせて重ねる（ゴースト）
+function cmpDrawGhost(ctx,lsT,lsM,W,H,tW,tH){
+    if(!lsT||!lsM) return;
+    const vis=(ls,i)=>(ls[i]?.visibility??0)>0.35;
+    const need=[K.LS,K.RS,K.LH,K.RH];
+    if(!need.every(i=>vis(lsT,i)&&vis(lsM,i))) return;
+    // 基準点（腰の中心）と体幹長をピクセルで求める
+    const cen=(ls,a,b,w,h)=>({x:(ls[a].x+ls[b].x)/2*w, y:(ls[a].y+ls[b].y)/2*h});
+    const tS=cen(lsT,K.LS,K.RS,tW,tH), tH2=cen(lsT,K.LH,K.RH,tW,tH);
+    const mS=cen(lsM,K.LS,K.RS,W,H),   mH2=cen(lsM,K.LH,K.RH,W,H);
+    const tLen=Math.hypot(tS.x-tH2.x,tS.y-tH2.y), mLen=Math.hypot(mS.x-mH2.x,mS.y-mH2.y);
+    if(tLen<1||mLen<1) return;
+    const sc=mLen/tLen;
+    const map=p=>({x:mH2.x+(p.x*tW-tH2.x)*sc, y:mH2.y+(p.y*tH-tH2.y)*sc});
+    ctx.save();
+    ctx.setLineDash([7,5]); ctx.lineCap='round';
+    ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=Math.max(2,W*0.006);
+    for(const [ai,bi] of BONES){
+        const a=lsT[ai],b=lsT[bi];
+        if(!a||!b||a.visibility<.35||b.visibility<.35) continue;
+        const pa=map(a), pb=map(b);
+        ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+    }
+    ctx.restore();
 }
 
 // ── 先生動画の切り出し範囲を求める ──
@@ -2258,62 +2335,94 @@ async function cmpLoop(){
             cmpTsB=nextTs(cmpTsB);
             lsM=landmarkerB.detectForVideo(cr,cmpTsB).landmarks?.[0]??null;
         }catch(e){}
-        cmpDrawPose(ctxR,lsM,cr.width,cr.height);
+        // 先生と比べてから、ズレの大きさで色分けして描く
+        const status=cmpEvaluate(lsT,lsM);
+        if(cmpGhost) cmpDrawGhost(ctxR,lsT,lsM,cr.width,cr.height,cl.width,cl.height);
+        cmpDrawPose(ctxR,lsM,cr.width,cr.height,status);
+        cmpRenderHints(status);
+    }else{
+        cmpRenderHints(null);
     }
 
-    // ポーズ名と差分表を更新
+    // ポーズ名
     const pt=lsT?classifyPose(lsT):null, pm=lsM?classifyPose(lsM):null;
     document.getElementById('cmp-L-pose').innerHTML = pt
         ? `<span style="color:${pt.color}">${pt.emoji} ${pt.label}</span>` : '―';
     document.getElementById('cmp-R-pose').innerHTML = pm
         ? `<span style="color:${pm.color}">${pm.emoji} ${pm.label}</span>` : '―';
-    cmpUpdateDiff(lsT,lsM);
     cmpDrawRecFrame();   // 録画中のみ1枚に合成
 }
 
-// ── 主要角度の差分テーブル ──────────────────────────────────
-function cmpMetrics(ls){
-    if(!ls) return null;
-    const ok=i=>(ls[i]?.visibility??0)>0.35;
-    const m={};
-    if(ok(K.RS)&&ok(K.RE)&&ok(K.RW)) m['右肘']=angle3(ls[K.RS],ls[K.RE],ls[K.RW]);
-    if(ok(K.LS)&&ok(K.LE)&&ok(K.LW)) m['左肘']=angle3(ls[K.LS],ls[K.LE],ls[K.LW]);
-    if(ok(K.RH)&&ok(K.RK)&&ok(K.RA)) m['右膝']=angle3(ls[K.RH],ls[K.RK],ls[K.RA]);
-    if(ok(K.LH)&&ok(K.LK)&&ok(K.LA)) m['左膝']=angle3(ls[K.LH],ls[K.LK],ls[K.LA]);
-    if(ok(K.LS)&&ok(K.RS)) m['肩傾き']=tiltDeg(ls[K.RS],ls[K.LS]);
-    if(ok(K.LH)&&ok(K.RH)) m['腰傾き']=tiltDeg(ls[K.RH],ls[K.LH]);
-    // 手の高さ（肩を0・腰を100とした相対位置。姿勢の高低を比べる）
-    if(ok(K.LS)&&ok(K.RS)&&ok(K.LH)&&ok(K.RH)){
-        const sY=(ls[K.LS].y+ls[K.RS].y)/2, hY=(ls[K.LH].y+ls[K.RH].y)/2;
-        const t=Math.max(.01,hY-sY);
-        if(ok(K.RW)) m['右手高']=Math.round((ls[K.RW].y-sY)/t*100);
-        if(ok(K.LW)) m['左手高']=Math.round((ls[K.LW].y-sY)/t*100);
+// ── 先生と自分を比べて「違う部位」を洗い出す ────────────────
+//  level 0=合っている / 1=少しズレ / 2=大きくズレ
+function cmpEvaluate(lsT,lsM){
+    if(!lsT||!lsM) return null;
+    const ok=(ls,i)=>(ls[i]?.visibility??0)>0.35;
+    const both=(...idx)=>idx.every(i=>ok(lsT,i)&&ok(lsM,i));
+    const status={};
+    const add=(name,tv,mv,tol,pt,adv)=>{
+        const d=Math.abs(tv-mv);
+        status[name]={level: d<tol?0:d<tol*2?1:2, diff:d, pt, adv};
+    };
+    // 肘・膝の曲げ具合
+    const joints=[
+        ['右肘',[K.RS,K.RE,K.RW],K.RE,18],
+        ['左肘',[K.LS,K.LE,K.LW],K.LE,18],
+        ['右膝',[K.RH,K.RK,K.RA],K.RK,18],
+        ['左膝',[K.LH,K.LK,K.LA],K.LK,18],
+    ];
+    for(const [name,[a,b,c],pt,tol] of joints){
+        if(!both(a,b,c)) continue;
+        const tv=angle3(lsT[a],lsT[b],lsT[c]), mv=angle3(lsM[a],lsM[b],lsM[c]);
+        add(name,tv,mv,tol,lsM[pt], mv<tv?'もっと伸ばす':'もっと曲げる');
     }
-    return m;
-}
-function cmpUpdateDiff(lsT,lsM){
-    const A=cmpMetrics(lsT), B=cmpMetrics(lsM);
-    const rows=['右肘','左肘','右手高','左手高','右膝','左膝','肩傾き','腰傾き'];
-    const tol={'右肘':18,'左肘':18,'右手高':22,'左手高':22,'右膝':18,'左膝':18,'肩傾き':5,'腰傾き':5};
-    cmpLastRows=[];
-    document.getElementById('cmp-diff-body').innerHTML=rows.map(k=>{
-        const a=A?.[k], b=B?.[k];
-        if(a==null||b==null){
-            cmpLastRows.push({name:k,a:'―',b:'―',d:'',mk:'',color:'rgba(255,255,255,.4)'});
-            return `<tr><td class="nm">${k}</td><td>${a??'―'}</td><td>${b??'―'}</td><td>―</td></tr>`;
+    // 手の高さ（肩を0・腰を100とした相対位置で比べる）
+    if(both(K.LS,K.RS,K.LH,K.RH)){
+        const rel=(ls,w)=>{
+            const sY=(ls[K.LS].y+ls[K.RS].y)/2, hY=(ls[K.LH].y+ls[K.RH].y)/2;
+            return (ls[w].y-sY)/Math.max(.01,hY-sY)*100;
+        };
+        for(const [name,w] of [['右手',K.RW],['左手',K.LW]]){
+            if(!both(w)) continue;
+            const tv=rel(lsT,w), mv=rel(lsM,w);
+            add(name,tv,mv,22,lsM[w], mv>tv?'もっと上げる':'もっと下げる');
         }
-        const d=Math.abs(a-b), t=tol[k];
-        const cls=d<t?'d-ok':d<t*2?'d-mid':'d-bad';
-        const mk=d<t?'✓':d<t*2?'△':'✗';
-        const col=d<t?'#69f0ae':d<t*2?'#ffd54f':'#ff8a80';
-        cmpLastRows.push({name:k,a:Math.round(a),b:Math.round(b),d:Math.round(d),mk,color:col});
-        return `<tr><td class="nm">${k}</td><td>${Math.round(a)}</td><td>${Math.round(b)}</td>`
-              +`<td class="${cls}">${mk} ${Math.round(d)}</td></tr>`;
-    }).join('');
+        // 肩・腰の水平
+        const mid=(ls,a,b)=>({x:(ls[a].x+ls[b].x)/2,y:(ls[a].y+ls[b].y)/2,visibility:1});
+        add('肩の傾き',tiltDeg(lsT[K.RS],lsT[K.LS]),tiltDeg(lsM[K.RS],lsM[K.LS]),
+            5,mid(lsM,K.LS,K.RS),'水平に');
+        add('腰の傾き',tiltDeg(lsT[K.RH],lsT[K.LH]),tiltDeg(lsM[K.RH],lsM[K.LH]),
+            5,mid(lsM,K.LH,K.RH),'水平に');
+    }
+    return status;
+}
+
+// ── 指摘チップを表示 ────────────────────────────────────────
+let cmpLastHints=[];
+function cmpRenderHints(status){
+    const el=document.getElementById('cmp-hints');
+    if(!status){
+        cmpLastHints=[];
+        el.innerHTML='<span class="hint-none">先生と自分の両方が映ると、違う部分だけをここに出します</span>';
+        return;
+    }
+    const bad=Object.entries(status).filter(([,s])=>s.level>0)
+        .sort((a,b)=>b[1].level-a[1].level||b[1].diff-a[1].diff)
+        .slice(0,4);
+    if(!bad.length){
+        cmpLastHints=[];
+        el.innerHTML='<span class="hint-ok">✓ 先生とよく合っています</span>';
+        return;
+    }
+    cmpLastHints=bad.map(([n,s])=>({name:n,adv:s.adv,level:s.level}));
+    el.innerHTML=bad.map(([n,s])=>
+        `<span class="hint ${s.level===2?'bad':'mid'}">${s.level===2?'●':'▲'} ${n}`
+       +`<span class="adv">${s.adv}</span></span>`).join('');
 }
 
 // ── 自分側のソース（ライブカメラ / 動画ファイル）────────────
 let cmpRightSrc='cam';                          // 'cam' か 'file'
+let cmpGhost=true;                              // 手本の骨格を重ねるか
 let cmpOffset=0;                                // 先生に対する自分の動画のズレ（秒）
 const cmpMyVid=document.createElement('video'); // 自分の動画（非表示）
 cmpMyVid.playsInline=true; cmpMyVid.muted=true; cmpMyVid.loop=true;
@@ -2360,7 +2469,6 @@ function cmpSyncMine(force){
 
 // ── 比較画面の録画 ──────────────────────────────────────────
 let cmpRec=null, cmpRecChunks=[], cmpRecCv=null, cmpRecSecs=0, cmpRecTimer=null;
-let cmpLastRows=[];   // 差分表の最新値（録画に焼き込む）
 
 window.cmpToggleRec=function cmpToggleRec(){
     const b=document.getElementById('cmp-rec');
@@ -2420,16 +2528,24 @@ function cmpDrawRecFrame(){
     c.fillStyle='#00e5ff';
     c.fillText(document.getElementById('cmp-L-pose').textContent, halfW/2, paneH-14);
     c.fillText(document.getElementById('cmp-R-pose').textContent, halfW+halfW/2, paneH-14);
-    // 差分表（下部の帯に2列で）
+    // 指摘（下部の帯）
     c.fillStyle='rgba(255,255,255,.06)'; c.fillRect(0,paneH,W,H-paneH);
-    c.font='20px sans-serif'; c.textAlign='left';
-    cmpLastRows.forEach((r,i)=>{
-        const col=i%2, row=Math.floor(i/2);
-        const x=30+col*(W/2), y=paneH+38+row*32;
-        c.fillStyle='rgba(255,255,255,.55)'; c.fillText(r.name, x, y);
-        c.fillStyle='rgba(255,255,255,.9)';  c.fillText(`${r.a}  →  ${r.b}`, x+130, y);
-        c.fillStyle=r.color;                 c.fillText(r.mk+' '+r.d, x+330, y);
-    });
+    c.textAlign='center';
+    if(!cmpLastHints.length){
+        c.font='bold 30px sans-serif'; c.fillStyle='#69f0ae';
+        c.fillText('✓ 先生とよく合っています', W/2, paneH+95);
+    }else{
+        c.font='bold 26px sans-serif';
+        const n=cmpLastHints.length, cw=W/n;
+        cmpLastHints.forEach((h,i)=>{
+            const x=cw*i+cw/2;
+            c.fillStyle=h.level===2?'#ff8a80':'#ffd54f';
+            c.fillText((h.level===2?'● ':'▲ ')+h.name, x, paneH+72);
+            c.font='22px sans-serif'; c.fillStyle='rgba(255,255,255,.8)';
+            c.fillText(h.adv, x, paneH+112);
+            c.font='bold 26px sans-serif';
+        });
+    }
 }
 
 // ── 出入り ──────────────────────────────────────────────────
@@ -2510,6 +2626,10 @@ window.cmpSlow=function cmpSlow(){
 window.cmpCropSet=function cmpCropSet(c){
     cmpCrop=c;
     document.querySelectorAll('.cbtn.crop').forEach(b=>b.classList.toggle('on',b.dataset.crop===c));
+};
+window.cmpGhostTgl=function cmpGhostTgl(){
+    cmpGhost=!cmpGhost;
+    document.getElementById('cmp-ghost').classList.toggle('on',cmpGhost);
 };
 window.cmpMirrorTgl=function cmpMirrorTgl(){
     cmpMirror=!cmpMirror;
