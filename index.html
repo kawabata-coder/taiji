@@ -450,11 +450,20 @@
 
         /* ══ 比較モード（先生⇔自分） ══════════════════════════ */
         #cmp{
-            position:absolute;left:0;right:0;top:118px;bottom:0;z-index:17;
+            position:absolute;left:0;right:0;top:118px;bottom:0;z-index:22;
             display:none;flex-direction:column;background:#000
         }
         body.route-cmp #cmp{display:flex}
         body.route-cmp #cmp,body.route-dict #dict{top:78px}
+        /* 比較・辞典モードでは通常モードのUI部品を出さない */
+        body.route-cmp #cam-ctrl, body.route-cmp #vid-ctrl, body.route-cmp #photo-ctrl,
+        body.route-cmp #vid-zone, body.route-cmp #upload-area, body.route-cmp #judge-panel,
+        body.route-cmp #noperson, body.route-cmp .badge, body.route-cmp #jumonji-legend,
+        body.route-dict #cam-ctrl, body.route-dict #vid-ctrl, body.route-dict #photo-ctrl,
+        body.route-dict #vid-zone, body.route-dict #upload-area, body.route-dict #judge-panel,
+        body.route-dict #noperson, body.route-dict .badge, body.route-dict #jumonji-legend{
+            display:none !important
+        }
         #cmp-panes{flex:1;display:flex;gap:2px;min-height:0}
         .cmp-pane{
             flex:1;position:relative;min-width:0;overflow:hidden;
@@ -2313,6 +2322,14 @@ document.getElementById('cmp-file').addEventListener('change',e=>{
     cmpVid.onloadedmetadata=()=>{
         document.getElementById('cmp-L-empty').style.display='none';
         cmpVid.currentTime=0;
+        // 冒頭はタイトル画面のことが多いので、読み込んだらすぐ再生を始める
+        cmpVid.play().then(()=>{
+            document.getElementById('cmp-play').textContent='⏸ 停止';
+        }).catch(()=>{
+            document.getElementById('cmp-play').textContent='▶ 再生';
+        });
+        // 横長（2画面構成）なら「左半分」を初期選択にする
+        if(cmpVid.videoWidth/Math.max(1,cmpVid.videoHeight) > 1.9) cmpCropSet('left');
     };
 });
 window.cmpPlay=function cmpPlay(){
