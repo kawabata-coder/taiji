@@ -559,10 +559,19 @@
         .mp-sub{font-size:10px;color:rgba(255,255,255,.45);margin-top:2px}
         .mp-empty{font-size:12px;color:rgba(255,255,255,.4);padding:14px 4px;line-height:1.7}
         .ch-sel{
-            flex:1;min-width:0;font-size:12px;padding:5px 6px;border-radius:7px;
+            width:100%;min-width:0;font-size:12px;padding:5px 6px;border-radius:7px;
             background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2)
         }
         .ch-t{font-size:10px;color:rgba(255,255,255,.5);flex:0 0 auto}
+        .ch-cap{
+            flex:0 0 96px;width:96px;border-radius:5px;display:block;
+            border:1px solid rgba(255,255,255,.2);background:#fff
+        }
+        .ch-nocap{
+            height:34px;display:flex;align-items:center;justify-content:center;
+            font-size:9px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.06)
+        }
+        .ch-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
         #det-box{
             background:rgba(255,255,255,.07);border-radius:9px;padding:10px;margin-bottom:12px
         }
@@ -706,6 +715,7 @@
             <div class="ov-btns">
                 <button class="cbtn main" onclick="detectChapters()">🔍 自動で区切りを検出</button>
                 <button class="cbtn" onclick="markChapter()">📍 今ここが開始</button>
+                <button class="cbtn" onclick="reassignChapters()">🔢 上から順に振り直す</button>
             </div>
             <div id="det-box" style="display:none">
                 <div id="det-txt">準備中…</div>
@@ -2784,8 +2794,19 @@ window.detectChapters=async function detectChapters(){
                    .filter(s=>s.end-s.start>=2.0);
     if(!segs.length){ alert('テロップの切り替わりを検出できませんでした。手動で登録してください。'); return; }
 
-    // 検出した順に第1式から割り当てる（あとから画面で修正できる）
-    const chapters=segs.slice(0,FORMS.length).map((s,i)=>({no:FORMS[i].no,start:s.start,end:s.end}));
+    // 各区間のテロップを切り出して残す（どの型かを目で確かめられるように）
+    document.getElementById('det-txt').textContent='テロップを取り込んでいます…';
+    const cap=document.createElement('canvas'); cap.width=176; cap.height=Math.round(176*(rh*vh)/(rw*vw));
+    const cc=cap.getContext('2d');
+    const shots=[];
+    for(const s of segs.slice(0,FORMS.length)){
+        await seekTo(cmpVid, Math.min(s.end-0.2, s.start+0.6));
+        cc.drawImage(cmpVid, rx*vw,ry*vh,rw*vw,rh*vh, 0,0,cap.width,cap.height);
+        shots.push(cap.toDataURL('image/jpeg',0.75));
+    }
+    // 検出した順に第1式から割り当てる（テロップを見て画面で修正できる）
+    const chapters=segs.slice(0,FORMS.length).map((s,i)=>
+        ({no:FORMS[i].no,start:s.start,end:s.end,cap:shots[i]}));
     curModel=curModel||{id:'m'+Date.now(),name:'お手本',blob:cmpTeacherFile,chapters:[],crop:cmpCrop,savedAt:Date.now()};
     curModel.chapters=chapters;
     renderChapters(); renderChapterSelect();
@@ -2813,8 +2834,12 @@ function renderChapters(){
         `<option value="${f.no}" ${f.no===no?'selected':''}>第${f.no}式 ${f.name}</option>`).join('');
     el.innerHTML=chs.map((ch,i)=>`
         <div class="ch-row">
-            <select class="ch-sel" data-i="${i}">${opts(ch.no)}</select>
-            <span class="ch-t">${fmt(ch.start)}〜${fmt(ch.end)}</span>
+            ${ch.cap?`<img class="ch-cap" src="${ch.cap}" alt="テロップ">`
+                    :'<span class="ch-cap ch-nocap">画像なし</span>'}
+            <div class="ch-main">
+                <select class="ch-sel" data-i="${i}">${opts(ch.no)}</select>
+                <span class="ch-t">${fmt(ch.start)}〜${fmt(ch.end)}</span>
+            </div>
             <button class="cbtn" onclick="playChapter(${i})">▶</button>
             <button class="cbtn" onclick="delChapter(${i})">✕</button>
         </div>`).join('');
@@ -2823,6 +2848,13 @@ function renderChapters(){
         renderChapterSelect(); persistChapters();
     }));
 }
+// 余分な行を消したあとに、残りを第1式から順に振り直す
+window.reassignChapters=function reassignChapters(){
+    const chs=curModel?.chapters; if(!chs?.length) return;
+    chs.sort((a,b)=>a.start-b.start);
+    chs.forEach((c,i)=>{ if(i<FORMS.length) c.no=FORMS[i].no; });
+    renderChapters(); renderChapterSelect(); persistChapters();
+};
 window.delChapter=function delChapter(i){
     curModel.chapters.splice(i,1);
     renderChapters(); renderChapterSelect(); persistChapters();
