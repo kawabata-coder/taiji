@@ -523,6 +523,12 @@
             border:2px solid #fff;cursor:pointer
         }
         #cmp-time{font-size:10px;color:rgba(255,255,255,.7);flex:0 0 auto}
+        .cmp-row{
+            width:100%;display:flex;flex-wrap:wrap;gap:5px;
+            align-items:center;justify-content:center
+        }
+        .cmp-cap{font-size:10px;color:rgba(255,255,255,.45);flex:0 0 auto}
+        .cbtn.rec-on{background:#ff1744;color:#fff;border-color:transparent;font-weight:700}
     </style>
 </head>
 <body class="route-learn">
@@ -604,18 +610,37 @@
                 <input type="range" id="cmp-seek" min="0" max="100" value="0" step="0.1">
                 <span id="cmp-time">0:00 / 0:00</span>
             </div>
-            <button class="cbtn" onclick="cmpStep(-1)">⏮</button>
-            <button class="cbtn main" id="cmp-play" onclick="cmpPlay()">▶ 再生</button>
-            <button class="cbtn" onclick="cmpStep(1)">⏭</button>
-            <button class="cbtn" id="cmp-slow" onclick="cmpSlow()">🐢 0.5x</button>
-            <button class="cbtn" onclick="pickTeacher()">🎬 動画変更</button>
-            <span style="font-size:10px;color:rgba(255,255,255,.45)">先生の切出し:</span>
-            <button class="cbtn crop on" data-crop="full"  onclick="cmpCropSet('full')">全体</button>
-            <button class="cbtn crop"    data-crop="left"  onclick="cmpCropSet('left')">左半分</button>
-            <button class="cbtn crop"    data-crop="right" onclick="cmpCropSet('right')">右半分</button>
-            <button class="cbtn" id="cmp-mir" onclick="cmpMirrorTgl()">🪞 自分を反転</button>
+            <div class="cmp-row">
+                <button class="cbtn" onclick="cmpStep(-1)">⏮</button>
+                <button class="cbtn main" id="cmp-play" onclick="cmpPlay()">▶ 再生</button>
+                <button class="cbtn" onclick="cmpStep(1)">⏭</button>
+                <button class="cbtn" id="cmp-slow" onclick="cmpSlow()">🐢 0.5x</button>
+                <button class="cbtn" id="cmp-rec" onclick="cmpToggleRec()">● 録画</button>
+            </div>
+            <div class="cmp-row">
+                <span class="cmp-cap">先生:</span>
+                <button class="cbtn" onclick="pickTeacher()">🎬 動画を選ぶ</button>
+                <button class="cbtn crop on" data-crop="full"  onclick="cmpCropSet('full')">全体</button>
+                <button class="cbtn crop"    data-crop="left"  onclick="cmpCropSet('left')">左半分</button>
+                <button class="cbtn crop"    data-crop="right" onclick="cmpCropSet('right')">右半分</button>
+            </div>
+            <div class="cmp-row">
+                <span class="cmp-cap">自分:</span>
+                <button class="cbtn src on" data-src="cam"  onclick="cmpSetRight('cam')">📷 ライブ</button>
+                <button class="cbtn src"    data-src="file" onclick="cmpSetRight('file')">🎬 動画</button>
+                <button class="cbtn" id="cmp-mypick" onclick="pickMine()" style="display:none">📁 自分の動画を選ぶ</button>
+                <button class="cbtn" id="cmp-mir" onclick="cmpMirrorTgl()">🪞 反転</button>
+            </div>
+            <div class="cmp-row" id="cmp-offrow" style="display:none">
+                <span class="cmp-cap">開始のズレ:</span>
+                <button class="cbtn" onclick="cmpOffsetAdj(-0.5)">◀ -0.5秒</button>
+                <span class="cbtn" id="cmp-off" style="background:none;border:none">0.0秒</span>
+                <button class="cbtn" onclick="cmpOffsetAdj(0.5)">+0.5秒 ▶</button>
+                <button class="cbtn" onclick="cmpOffsetAdj(null)">リセット</button>
+            </div>
         </div>
-        <input type="file" id="cmp-file" accept="video/*" style="display:none">
+        <input type="file" id="cmp-file"   accept="video/*" style="display:none">
+        <input type="file" id="cmp-myfile" accept="video/*" style="display:none">
     </div>
 
     <!-- 型辞典 -->
@@ -1689,7 +1714,7 @@ function startRec(){
         const a    = document.createElement('a');
         const ts   = new Date().toISOString().slice(0,19).replace(/[T:]/g,'-');
         a.href     = url;
-        a.download = `kyudo-${ts}.webm`;
+        a.download = `taiji-${ts}.webm`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2218,14 +2243,16 @@ async function cmpLoop(){
             fmt(cmpVid.currentTime)+' / '+fmt(cmpVid.duration||0);
     }
 
-    // 右：自分
+    // 右：自分（ライブカメラ または 自分の動画）
     const cr=document.getElementById('cmp-R'), ctxR=cr.getContext('2d');
-    if(cmpCam.readyState>=2&&landmarkerB){
-        const w=cmpCam.videoWidth||1, h=cmpCam.videoHeight||1;
+    const meSrc = cmpRightSrc==='file' ? cmpMyVid : cmpCam;
+    if(cmpRightSrc==='file') cmpSyncMine(false);   // 先生の再生位置に追従させる
+    if(meSrc.readyState>=2&&landmarkerB){
+        const w=meSrc.videoWidth||1, h=meSrc.videoHeight||1;
         if(cr.width!==w||cr.height!==h){ cr.width=w; cr.height=h; }
         ctxR.save();
         if(cmpMirror){ ctxR.translate(w,0); ctxR.scale(-1,1); }
-        ctxR.drawImage(cmpCam,0,0,w,h);
+        ctxR.drawImage(meSrc,0,0,w,h);
         ctxR.restore();
         try{
             cmpTsB=nextTs(cmpTsB);
@@ -2241,6 +2268,7 @@ async function cmpLoop(){
     document.getElementById('cmp-R-pose').innerHTML = pm
         ? `<span style="color:${pm.color}">${pm.emoji} ${pm.label}</span>` : '―';
     cmpUpdateDiff(lsT,lsM);
+    cmpDrawRecFrame();   // 録画中のみ1枚に合成
 }
 
 // ── 主要角度の差分テーブル ──────────────────────────────────
@@ -2267,16 +2295,141 @@ function cmpUpdateDiff(lsT,lsM){
     const A=cmpMetrics(lsT), B=cmpMetrics(lsM);
     const rows=['右肘','左肘','右手高','左手高','右膝','左膝','肩傾き','腰傾き'];
     const tol={'右肘':18,'左肘':18,'右手高':22,'左手高':22,'右膝':18,'左膝':18,'肩傾き':5,'腰傾き':5};
+    cmpLastRows=[];
     document.getElementById('cmp-diff-body').innerHTML=rows.map(k=>{
         const a=A?.[k], b=B?.[k];
-        if(a==null||b==null)
+        if(a==null||b==null){
+            cmpLastRows.push({name:k,a:'―',b:'―',d:'',mk:'',color:'rgba(255,255,255,.4)'});
             return `<tr><td class="nm">${k}</td><td>${a??'―'}</td><td>${b??'―'}</td><td>―</td></tr>`;
+        }
         const d=Math.abs(a-b), t=tol[k];
         const cls=d<t?'d-ok':d<t*2?'d-mid':'d-bad';
         const mk=d<t?'✓':d<t*2?'△':'✗';
+        const col=d<t?'#69f0ae':d<t*2?'#ffd54f':'#ff8a80';
+        cmpLastRows.push({name:k,a:Math.round(a),b:Math.round(b),d:Math.round(d),mk,color:col});
         return `<tr><td class="nm">${k}</td><td>${Math.round(a)}</td><td>${Math.round(b)}</td>`
               +`<td class="${cls}">${mk} ${Math.round(d)}</td></tr>`;
     }).join('');
+}
+
+// ── 自分側のソース（ライブカメラ / 動画ファイル）────────────
+let cmpRightSrc='cam';                          // 'cam' か 'file'
+let cmpOffset=0;                                // 先生に対する自分の動画のズレ（秒）
+const cmpMyVid=document.createElement('video'); // 自分の動画（非表示）
+cmpMyVid.playsInline=true; cmpMyVid.muted=true; cmpMyVid.loop=true;
+
+window.cmpSetRight=function cmpSetRight(s){
+    cmpRightSrc=s;
+    document.querySelectorAll('.cbtn.src').forEach(b=>b.classList.toggle('on',b.dataset.src===s));
+    document.getElementById('cmp-mypick').style.display = s==='file'?'':'none';
+    document.getElementById('cmp-offrow').style.display = s==='file'?'flex':'none';
+    if(s==='file'){
+        // カメラを止めて動画に切り替える
+        cmpStream?.getTracks().forEach(t=>t.stop()); cmpStream=null; cmpCam.srcObject=null;
+        if(!cmpMyVid.src) pickMine();
+    }else{
+        cmpMyVid.pause();
+        cmpStartCam();
+    }
+};
+async function cmpStartCam(){
+    if(cmpStream) return;
+    try{
+        cmpStream=await navigator.mediaDevices.getUserMedia({
+            video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},audio:false});
+        cmpCam.srcObject=cmpStream; await cmpCam.play();
+    }catch(e){}
+}
+window.pickMine=function pickMine(){ document.getElementById('cmp-myfile').click(); };
+document.getElementById('cmp-myfile').addEventListener('change',e=>{
+    const f=e.target.files?.[0]; if(!f) return;
+    cmpMyVid.src=URL.createObjectURL(f);
+    cmpMyVid.onloadedmetadata=()=>{ cmpSyncMine(true); };
+});
+window.cmpOffsetAdj=function cmpOffsetAdj(d){
+    cmpOffset = (d===null) ? 0 : Math.round((cmpOffset+d)*10)/10;
+    document.getElementById('cmp-off').textContent=cmpOffset.toFixed(1)+'秒';
+    cmpSyncMine(true);
+};
+// 自分の動画を先生の再生位置に合わせる（force=即座にシーク）
+function cmpSyncMine(force){
+    if(cmpRightSrc!=='file'||!cmpMyVid.src||!cmpMyVid.duration) return;
+    const want=Math.max(0,Math.min(cmpMyVid.duration, cmpVid.currentTime+cmpOffset));
+    if(force||Math.abs(cmpMyVid.currentTime-want)>0.25) cmpMyVid.currentTime=want;
+}
+
+// ── 比較画面の録画 ──────────────────────────────────────────
+let cmpRec=null, cmpRecChunks=[], cmpRecCv=null, cmpRecSecs=0, cmpRecTimer=null;
+let cmpLastRows=[];   // 差分表の最新値（録画に焼き込む）
+
+window.cmpToggleRec=function cmpToggleRec(){
+    const b=document.getElementById('cmp-rec');
+    if(cmpRec&&cmpRec.state==='recording'){
+        cmpRec.stop(); clearInterval(cmpRecTimer);
+        b.textContent='● 録画'; b.classList.remove('rec-on');
+        return;
+    }
+    cmpRecCv=cmpRecCv||document.createElement('canvas');
+    cmpRecCv.width=1280; cmpRecCv.height=760;
+    const stream=cmpRecCv.captureStream(30);
+    const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+        .find(t=>MediaRecorder.isTypeSupported(t))||'video/webm';
+    cmpRec=new MediaRecorder(stream,{mimeType:mime});
+    cmpRecChunks=[];
+    cmpRec.ondataavailable=e=>{ if(e.data.size>0) cmpRecChunks.push(e.data); };
+    cmpRec.onstop=()=>{
+        const blob=new Blob(cmpRecChunks,{type:mime});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        const ts=new Date().toISOString().slice(0,19).replace(/[T:]/g,'-');
+        a.href=url; a.download=`taiji-hikaku-${ts}.webm`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(()=>URL.revokeObjectURL(url),1000);
+    };
+    cmpRec.start(100);
+    cmpRecSecs=0;
+    b.textContent='⏹ 停止 0:00'; b.classList.add('rec-on');
+    cmpRecTimer=setInterval(()=>{
+        cmpRecSecs++;
+        const m=Math.floor(cmpRecSecs/60), s=String(cmpRecSecs%60).padStart(2,'0');
+        b.textContent=`⏹ 停止 ${m}:${s}`;
+    },1000);
+};
+
+// 左右のペインと差分表を1枚に合成する（録画用）
+function cmpDrawRecFrame(){
+    if(!cmpRec||cmpRec.state!=='recording'||!cmpRecCv) return;
+    const c=cmpRecCv.getContext('2d'), W=cmpRecCv.width, H=cmpRecCv.height;
+    const paneH=600, halfW=W/2;
+    c.fillStyle='#000'; c.fillRect(0,0,W,H);
+    const put=(cv,ox)=>{
+        if(!cv||!cv.width) return;
+        const s=Math.min((halfW-8)/cv.width, (paneH-8)/cv.height);
+        const w=cv.width*s, h=cv.height*s;
+        c.drawImage(cv, ox+(halfW-w)/2, (paneH-h)/2, w, h);
+    };
+    put(document.getElementById('cmp-L'), 0);
+    put(document.getElementById('cmp-R'), halfW);
+    // 見出し
+    c.font='bold 24px sans-serif'; c.textAlign='center';
+    c.fillStyle='rgba(255,255,255,.85)';
+    c.fillText('先生', halfW/2, 34);
+    c.fillText('自分', halfW+halfW/2, 34);
+    // ポーズ名
+    c.font='bold 26px sans-serif';
+    c.fillStyle='#00e5ff';
+    c.fillText(document.getElementById('cmp-L-pose').textContent, halfW/2, paneH-14);
+    c.fillText(document.getElementById('cmp-R-pose').textContent, halfW+halfW/2, paneH-14);
+    // 差分表（下部の帯に2列で）
+    c.fillStyle='rgba(255,255,255,.06)'; c.fillRect(0,paneH,W,H-paneH);
+    c.font='20px sans-serif'; c.textAlign='left';
+    cmpLastRows.forEach((r,i)=>{
+        const col=i%2, row=Math.floor(i/2);
+        const x=30+col*(W/2), y=paneH+38+row*32;
+        c.fillStyle='rgba(255,255,255,.55)'; c.fillText(r.name, x, y);
+        c.fillStyle='rgba(255,255,255,.9)';  c.fillText(`${r.a}  →  ${r.b}`, x+130, y);
+        c.fillStyle=r.color;                 c.fillText(r.mk+' '+r.d, x+330, y);
+    });
 }
 
 // ── 出入り ──────────────────────────────────────────────────
@@ -2298,18 +2451,15 @@ async function cmpEnter(){
             minPoseDetectionConfidence:0.5,minTrackingConfidence:0.5
         });
     }
-    try{
-        cmpStream=await navigator.mediaDevices.getUserMedia({
-            video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},audio:false});
-        cmpCam.srcObject=cmpStream; await cmpCam.play();
-    }catch(e){}
+    if(cmpRightSrc==='cam') await cmpStartCam();
     if(cmpRaf) cancelAnimationFrame(cmpRaf);
     cmpLoop();
 }
 async function cmpExit(){
     if(cmpRaf){ cancelAnimationFrame(cmpRaf); cmpRaf=null; }
+    if(cmpRec&&cmpRec.state==='recording') cmpToggleRec();   // 録画中なら書き出して停止
     cmpStream?.getTracks().forEach(t=>t.stop()); cmpStream=null;
-    cmpVid.pause();
+    cmpVid.pause(); cmpMyVid.pause();
     // 元のモードを再開する
     const m=mode; mode='__none__'; await switchMode(m);
 }
@@ -2335,17 +2485,25 @@ document.getElementById('cmp-file').addEventListener('change',e=>{
 window.cmpPlay=function cmpPlay(){
     const b=document.getElementById('cmp-play');
     if(!cmpVid.src){ pickTeacher(); return; }
-    if(cmpVid.paused){ cmpVid.play(); b.textContent='⏸ 停止'; }
-    else{ cmpVid.pause(); b.textContent='▶ 再生'; }
+    if(cmpVid.paused){
+        cmpVid.play(); b.textContent='⏸ 停止';
+        if(cmpRightSrc==='file'&&cmpMyVid.src){ cmpSyncMine(true); cmpMyVid.play(); }
+    }else{
+        cmpVid.pause(); b.textContent='▶ 再生';
+        cmpMyVid.pause();
+    }
 };
 window.cmpStep=function cmpStep(dir){
     if(!cmpVid.src) return;
-    cmpVid.pause(); document.getElementById('cmp-play').textContent='▶ 再生';
+    cmpVid.pause(); cmpMyVid.pause();
+    document.getElementById('cmp-play').textContent='▶ 再生';
     cmpVid.currentTime=Math.max(0,Math.min(cmpVid.duration||0,cmpVid.currentTime+dir*frameStep));
+    cmpSyncMine(true);
 };
 window.cmpSlow=function cmpSlow(){
     const b=document.getElementById('cmp-slow');
     cmpVid.playbackRate = cmpVid.playbackRate===1 ? 0.5 : 1;
+    cmpMyVid.playbackRate = cmpVid.playbackRate;
     b.classList.toggle('on',cmpVid.playbackRate!==1);
     b.textContent = cmpVid.playbackRate===1 ? '🐢 0.5x' : '🐇 等速に戻す';
 };
@@ -2365,6 +2523,7 @@ const cmpSeekEl=document.getElementById('cmp-seek');
     cmpSeekEl.addEventListener(ev,()=>{cmpSeekDrag=false;}));
 cmpSeekEl.addEventListener('input',()=>{
     if(cmpVid.duration) cmpVid.currentTime=(cmpSeekEl.value/100)*cmpVid.duration;
+    cmpSyncMine(true);
 });
 
 // ── 初期化 ──────────────────────────────────────────────────
