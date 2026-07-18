@@ -596,12 +596,6 @@
         <input type="file" id="file-input" style="display:none">
     </div>
 
-    <!-- シークバー（動画モード） -->
-    <div id="seek-wrap">
-        <input type="range" id="seekbar" min="0" max="100" value="0" step="0.1">
-        <div id="time-lbl">0:00 / 0:00</div>
-    </div>
-
     <!-- 動画コントロールゾーン（seek + frame + vid を一体化） -->
     <div id="vid-zone">
         <!-- シークバー -->
@@ -1669,7 +1663,7 @@ function vidLoop(){
     syncCanvas();ovCtx.clearRect(0,0,overlay.width,overlay.height);
     try{onResult(landmarker.detectForVideo(fileVideo,performance.now()));}catch(e){}
     if(fileVideo.duration){
-        seekbar.value=(fileVideo.currentTime/fileVideo.duration)*100;
+        if(!seekDragging) seekbar.value=(fileVideo.currentTime/fileVideo.duration)*100;
         timeLbl.textContent=fmt(fileVideo.currentTime)+' / '+fmt(fileVideo.duration);
     }
     if(fileVideo.ended) document.getElementById('btn-play').textContent='▶ 再生';
@@ -1705,6 +1699,7 @@ async function switchMode(newMode){
     camVideo.classList.remove('show');fileVideo.classList.remove('show');bgCanvas.classList.remove('show');
     document.getElementById('vid-zone').classList.remove('show');
     hideAll();ovCtx.clearRect(0,0,overlay.width,overlay.height);noperson.style.display='none';
+    document.getElementById('upload-area').classList.remove('show'); // 前モードの枠が残らないように
     mode=newMode;
     document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.mode===newMode));
     document.getElementById('cam-ctrl').style.display  = newMode==='cam'  ?'flex':'none';
@@ -1754,7 +1749,10 @@ document.getElementById('file-input').addEventListener('change',async e=>{
     }else{
         fileVideo.src=url;fileVideo.classList.add('show');
         document.getElementById('vid-zone').classList.add('show');
-        fileVideo.onloadedmetadata=()=>timeLbl.textContent='0:00 / '+fmt(fileVideo.duration);
+        fileVideo.onloadedmetadata=()=>{
+            seekbar.value=0;
+            timeLbl.textContent='0:00 / '+fmt(fileVideo.duration);
+        };
         await fileVideo.load();
         vidLoop();
         fileVideo.play().then(()=>{
@@ -1811,6 +1809,11 @@ document.querySelectorAll('.step-btn').forEach(btn=>{
     });
 });
 
+let seekDragging=false;   // シークバーをドラッグ中はループ側で値を上書きしない
+['pointerdown','touchstart','mousedown'].forEach(ev=>
+    seekbar.addEventListener(ev,()=>{seekDragging=true;},{passive:true}));
+['pointerup','touchend','mouseup','change'].forEach(ev=>
+    seekbar.addEventListener(ev,()=>{seekDragging=false;}));
 seekbar.addEventListener('input',()=>{
     if(fileVideo.duration) fileVideo.currentTime=(seekbar.value/100)*fileVideo.duration;
 });
