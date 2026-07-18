@@ -331,7 +331,8 @@
         /* ══ 套路モード（練習／通し／辞典／分析） ══════════════ */
         #route-tabs{display:flex;gap:5px;padding-bottom:8px}
         .rt{
-            flex:1;padding:7px 0;border-radius:14px;font-size:12px;cursor:pointer;
+            flex:1;padding:7px 1px;border-radius:14px;font-size:11px;cursor:pointer;
+            white-space:nowrap;overflow:hidden;
             background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);
             border:1.5px solid rgba(255,255,255,.16)
         }
@@ -446,6 +447,73 @@
             border-top:1px solid rgba(255,255,255,.12);padding-top:10px;line-height:1.8
         }
         #fm-btns{display:flex;gap:8px;margin-top:14px}
+
+        /* ══ 比較モード（先生⇔自分） ══════════════════════════ */
+        #cmp{
+            position:absolute;left:0;right:0;top:118px;bottom:0;z-index:17;
+            display:none;flex-direction:column;background:#000
+        }
+        body.route-cmp #cmp{display:flex}
+        body.route-cmp #cmp,body.route-dict #dict{top:78px}
+        #cmp-panes{flex:1;display:flex;gap:2px;min-height:0}
+        .cmp-pane{
+            flex:1;position:relative;min-width:0;overflow:hidden;
+            background:#0b0b0d;display:flex;align-items:center;justify-content:center
+        }
+        .cmp-pane canvas{max-width:100%;max-height:100%;display:block}
+        .cmp-lbl{
+            position:absolute;top:4px;left:4px;z-index:3;font-size:10px;
+            background:rgba(0,0,0,.65);padding:2px 7px;border-radius:5px;
+            color:rgba(255,255,255,.85)
+        }
+        .cmp-pose{
+            position:absolute;bottom:4px;left:4px;right:4px;z-index:3;text-align:center;
+            font-size:12px;font-weight:700;background:rgba(0,0,0,.62);
+            border-radius:6px;padding:3px 2px
+        }
+        .cmp-empty{
+            position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+            flex-direction:column;gap:10px;font-size:12px;color:rgba(255,255,255,.45);
+            text-align:center;padding:12px
+        }
+        /* 差分テーブル */
+        #cmp-diff{flex:0 0 auto;background:rgba(0,0,0,.88);padding:5px 6px}
+        #cmp-diff table{width:100%;border-collapse:collapse;font-size:11px}
+        #cmp-diff th{
+            font-size:9px;color:rgba(255,255,255,.45);font-weight:400;padding:1px 2px
+        }
+        #cmp-diff td{padding:2px;text-align:center;color:rgba(255,255,255,.85)}
+        #cmp-diff td.nm{text-align:left;color:rgba(255,255,255,.55);font-size:10px}
+        .d-ok{color:#69f0ae;font-weight:700}
+        .d-mid{color:#ffd54f;font-weight:700}
+        .d-bad{color:#ff8a80;font-weight:700}
+        /* 操作バー */
+        #cmp-ctrl{
+            flex:0 0 auto;display:flex;flex-wrap:wrap;gap:5px;
+            justify-content:center;align-items:center;padding:6px 6px 10px;
+            background:rgba(0,0,0,.88)
+        }
+        .cbtn{
+            padding:6px 11px;border-radius:8px;font-size:11px;cursor:pointer;
+            background:rgba(255,255,255,.14);color:#fff;
+            border:1px solid rgba(255,255,255,.2);white-space:nowrap
+        }
+        .cbtn.on{background:#00bfa5;color:#00110e;border-color:transparent;font-weight:700}
+        .cbtn.main{background:#00bfa5;color:#00110e;border-color:transparent;font-weight:700}
+        #cmp-seekwrap{width:100%;display:flex;align-items:center;gap:7px;padding:0 4px}
+        #cmp-seek{
+            flex:1;height:7px;-webkit-appearance:none;appearance:none;
+            background:rgba(255,255,255,.28);border-radius:4px;outline:none
+        }
+        #cmp-seek::-webkit-slider-thumb{
+            -webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+            background:#00e5ff;border:2px solid #fff;cursor:pointer
+        }
+        #cmp-seek::-moz-range-thumb{
+            width:22px;height:22px;border-radius:50%;background:#00e5ff;
+            border:2px solid #fff;cursor:pointer
+        }
+        #cmp-time{font-size:10px;color:rgba(255,255,255,.7);flex:0 0 auto}
     </style>
 </head>
 <body class="route-learn">
@@ -493,6 +561,52 @@
             <button class="gc-btn" onclick="closeRunResult()">✕ 閉じる</button>
             <button class="gc-btn main" onclick="closeRunResult();toggleRun()">↻ もう一度</button>
         </div>
+    </div>
+
+    <!-- 比較モード（先生⇔自分） -->
+    <div id="cmp">
+        <div id="cmp-panes">
+            <div class="cmp-pane">
+                <div class="cmp-lbl">👨‍🏫 先生</div>
+                <canvas id="cmp-L" width="480" height="360"></canvas>
+                <div class="cmp-pose" id="cmp-L-pose">―</div>
+                <div class="cmp-empty" id="cmp-L-empty">
+                    <span style="font-size:26px">🎬</span>
+                    先生の動画を読み込んでください
+                    <button class="cbtn main" onclick="pickTeacher()">動画を選択</button>
+                </div>
+            </div>
+            <div class="cmp-pane">
+                <div class="cmp-lbl">🧍 自分</div>
+                <canvas id="cmp-R" width="480" height="360"></canvas>
+                <div class="cmp-pose" id="cmp-R-pose">―</div>
+            </div>
+        </div>
+
+        <div id="cmp-diff">
+            <table>
+                <tr><th>項目</th><th>先生</th><th>自分</th><th>差</th></tr>
+                <tbody id="cmp-diff-body"></tbody>
+            </table>
+        </div>
+
+        <div id="cmp-ctrl">
+            <div id="cmp-seekwrap">
+                <input type="range" id="cmp-seek" min="0" max="100" value="0" step="0.1">
+                <span id="cmp-time">0:00 / 0:00</span>
+            </div>
+            <button class="cbtn" onclick="cmpStep(-1)">⏮</button>
+            <button class="cbtn main" id="cmp-play" onclick="cmpPlay()">▶ 再生</button>
+            <button class="cbtn" onclick="cmpStep(1)">⏭</button>
+            <button class="cbtn" id="cmp-slow" onclick="cmpSlow()">🐢 0.5x</button>
+            <button class="cbtn" onclick="pickTeacher()">🎬 動画変更</button>
+            <span style="font-size:10px;color:rgba(255,255,255,.45)">先生の切出し:</span>
+            <button class="cbtn crop on" data-crop="full"  onclick="cmpCropSet('full')">全体</button>
+            <button class="cbtn crop"    data-crop="left"  onclick="cmpCropSet('left')">左半分</button>
+            <button class="cbtn crop"    data-crop="right" onclick="cmpCropSet('right')">右半分</button>
+            <button class="cbtn" id="cmp-mir" onclick="cmpMirrorTgl()">🪞 自分を反転</button>
+        </div>
+        <input type="file" id="cmp-file" accept="video/*" style="display:none">
     </div>
 
     <!-- 型辞典 -->
@@ -576,6 +690,7 @@
         <div id="route-tabs">
             <button class="rt on" data-route="learn">🎓 練習</button>
             <button class="rt"    data-route="run">🏃 通し</button>
+            <button class="rt"    data-route="cmp">⚖ 比較</button>
             <button class="rt"    data-route="dict">📖 辞典</button>
             <button class="rt"    data-route="free">🔍 分析</button>
         </div>
@@ -1461,7 +1576,7 @@ function onPhaseDetected(phaseKey,ls){
     // 套路モードごとに判定結果を振り分ける
     if(route==='learn'){ guideDetect(phaseKey); return; }
     if(route==='run'){   runDetect(phaseKey);   return; }
-    if(route==='dict') return;
+    if(route==='dict'||route==='cmp') return;
     if(!autoMode) return; // 手動モードでは自動ハイライト・自動キャプチャしない
     document.querySelectorAll('.ph-slot').forEach(el=>
         el.classList.toggle('ph-active',el.dataset.key===phaseKey));
@@ -1859,6 +1974,7 @@ const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 //  套路モード（練習 / 通し / 辞典 / 分析）
 // ================================================================
 let route='learn';           // 現在の套路モード
+let prevRoute='learn';
 let curForm=0;               // 練習中の型のインデックス
 let formHitTimer=null, formHit=false;
 let runActive=false, runSeq=[], runStartT=0, runLastPose=null;
@@ -1868,13 +1984,17 @@ const AUTO_FORMS=()=>FORMS.filter(f=>f.pose);   // 自動判定できる型
 window.setRoute=function setRoute(r){
     route=r;
     document.querySelectorAll('.rt').forEach(t=>t.classList.toggle('on',t.dataset.route===r));
-    document.body.classList.remove('route-learn','route-run','route-dict','route-free');
+    document.body.classList.remove('route-learn','route-run','route-dict','route-free','route-cmp');
     document.body.classList.add('route-'+r);
     // 辞典モードでは入力ソースのタブを隠す
-    document.getElementById('tabs').style.display = (r==='dict') ? 'none' : 'flex';
+    document.getElementById('tabs').style.display = (r==='dict'||r==='cmp') ? 'none' : 'flex';
     if(r==='learn') renderGuide();
     if(r==='dict')  buildDict();
     if(r!=='run' && runActive) toggleRun();
+    // 比較モードは専用のカメラ・検出器を使うので出入りで切り替える
+    if(r==='cmp'){ cmpEnter(); }
+    else if(prevRoute==='cmp'){ cmpExit(); }
+    prevRoute=r;
 };
 
 // ── 練習ガイド ──────────────────────────────────────────────
@@ -2023,6 +2143,212 @@ window.practiceThis=function practiceThis(){
 
 document.querySelectorAll('.rt').forEach(t=>
     t.addEventListener('click',()=>setRoute(t.dataset.route)));
+
+// ================================================================
+//  比較モード（左＝先生の動画 / 右＝自分のカメラ）
+// ================================================================
+let landmarkerB=null;              // 2つ目の骨格検出器（自分用）
+let cmpRaf=null, cmpStream=null;
+let cmpTs=0, cmpTsB=0;             // detectForVideo 用の単調増加タイムスタンプ
+// 実時間を使いつつ必ず前回より大きい値を返す（本体ループと時間軸を揃えるため）
+const nextTs=prev=>{ const t=performance.now(); return t>prev ? t : prev+1; };
+let cmpCrop='full';                // 先生動画の切り出し（全体/左半分/右半分）
+let cmpMirror=false;               // 自分の映像を左右反転するか
+const cmpVid=document.createElement('video');   // 先生の動画（非表示）
+cmpVid.playsInline=true; cmpVid.muted=true; cmpVid.loop=true;
+const cmpCam=document.createElement('video');   // 自分のカメラ（非表示）
+cmpCam.playsInline=true; cmpCam.autoplay=true; cmpCam.muted=true;
+
+// ── 骨格を任意のキャンバスに描く（比較モード専用の簡易版）──
+function cmpDrawPose(ctx,ls,W,H){
+    if(!ls) return;
+    ctx.lineCap='round';
+    for(const [ai,bi,col] of BONES){
+        const a=ls[ai],b=ls[bi];
+        if(!a||!b||a.visibility<.35||b.visibility<.35) continue;
+        ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=Math.max(2,W*0.008);
+        ctx.moveTo(a.x*W,a.y*H); ctx.lineTo(b.x*W,b.y*H); ctx.stroke();
+    }
+    for(const i of Object.values(K)){
+        const lm=ls[i]; if(!lm||lm.visibility<.35) continue;
+        ctx.beginPath(); ctx.fillStyle='#fff'; ctx.strokeStyle='#333';
+        ctx.lineWidth=1.2; ctx.arc(lm.x*W,lm.y*H,Math.max(2.5,W*0.011),0,2*Math.PI);
+        ctx.fill(); ctx.stroke();
+    }
+}
+
+// ── 先生動画の切り出し範囲を求める ──
+function cmpSrcRect(v){
+    const w=v.videoWidth||1, h=v.videoHeight||1;
+    if(cmpCrop==='left')  return [0,0,w/2,h];
+    if(cmpCrop==='right') return [w/2,0,w/2,h];
+    return [0,0,w,h];
+}
+
+// ── 比較ループ ──────────────────────────────────────────────
+async function cmpLoop(){
+    cmpRaf=requestAnimationFrame(cmpLoop);
+    let lsT=null, lsM=null;
+
+    // 左：先生
+    const cl=document.getElementById('cmp-L'), ctxL=cl.getContext('2d');
+    if(cmpVid.readyState>=2){
+        const [sx,sy,sw,sh]=cmpSrcRect(cmpVid);
+        if(cl.width!==sw||cl.height!==sh){ cl.width=sw; cl.height=sh; }
+        ctxL.drawImage(cmpVid,sx,sy,sw,sh,0,0,sw,sh);
+        try{
+            cmpTs=nextTs(cmpTs);
+            lsT=landmarker.detectForVideo(cl,cmpTs).landmarks?.[0]??null;
+        }catch(e){}
+        cmpDrawPose(ctxL,lsT,cl.width,cl.height);
+        // シークバー・時刻
+        if(cmpVid.duration&&!cmpSeekDrag){
+            document.getElementById('cmp-seek').value=(cmpVid.currentTime/cmpVid.duration)*100;
+        }
+        document.getElementById('cmp-time').textContent=
+            fmt(cmpVid.currentTime)+' / '+fmt(cmpVid.duration||0);
+    }
+
+    // 右：自分
+    const cr=document.getElementById('cmp-R'), ctxR=cr.getContext('2d');
+    if(cmpCam.readyState>=2&&landmarkerB){
+        const w=cmpCam.videoWidth||1, h=cmpCam.videoHeight||1;
+        if(cr.width!==w||cr.height!==h){ cr.width=w; cr.height=h; }
+        ctxR.save();
+        if(cmpMirror){ ctxR.translate(w,0); ctxR.scale(-1,1); }
+        ctxR.drawImage(cmpCam,0,0,w,h);
+        ctxR.restore();
+        try{
+            cmpTsB=nextTs(cmpTsB);
+            lsM=landmarkerB.detectForVideo(cr,cmpTsB).landmarks?.[0]??null;
+        }catch(e){}
+        cmpDrawPose(ctxR,lsM,cr.width,cr.height);
+    }
+
+    // ポーズ名と差分表を更新
+    const pt=lsT?classifyPose(lsT):null, pm=lsM?classifyPose(lsM):null;
+    document.getElementById('cmp-L-pose').innerHTML = pt
+        ? `<span style="color:${pt.color}">${pt.emoji} ${pt.label}</span>` : '―';
+    document.getElementById('cmp-R-pose').innerHTML = pm
+        ? `<span style="color:${pm.color}">${pm.emoji} ${pm.label}</span>` : '―';
+    cmpUpdateDiff(lsT,lsM);
+}
+
+// ── 主要角度の差分テーブル ──────────────────────────────────
+function cmpMetrics(ls){
+    if(!ls) return null;
+    const ok=i=>(ls[i]?.visibility??0)>0.35;
+    const m={};
+    if(ok(K.RS)&&ok(K.RE)&&ok(K.RW)) m['右肘']=angle3(ls[K.RS],ls[K.RE],ls[K.RW]);
+    if(ok(K.LS)&&ok(K.LE)&&ok(K.LW)) m['左肘']=angle3(ls[K.LS],ls[K.LE],ls[K.LW]);
+    if(ok(K.RH)&&ok(K.RK)&&ok(K.RA)) m['右膝']=angle3(ls[K.RH],ls[K.RK],ls[K.RA]);
+    if(ok(K.LH)&&ok(K.LK)&&ok(K.LA)) m['左膝']=angle3(ls[K.LH],ls[K.LK],ls[K.LA]);
+    if(ok(K.LS)&&ok(K.RS)) m['肩傾き']=tiltDeg(ls[K.RS],ls[K.LS]);
+    if(ok(K.LH)&&ok(K.RH)) m['腰傾き']=tiltDeg(ls[K.RH],ls[K.LH]);
+    // 手の高さ（肩を0・腰を100とした相対位置。姿勢の高低を比べる）
+    if(ok(K.LS)&&ok(K.RS)&&ok(K.LH)&&ok(K.RH)){
+        const sY=(ls[K.LS].y+ls[K.RS].y)/2, hY=(ls[K.LH].y+ls[K.RH].y)/2;
+        const t=Math.max(.01,hY-sY);
+        if(ok(K.RW)) m['右手高']=Math.round((ls[K.RW].y-sY)/t*100);
+        if(ok(K.LW)) m['左手高']=Math.round((ls[K.LW].y-sY)/t*100);
+    }
+    return m;
+}
+function cmpUpdateDiff(lsT,lsM){
+    const A=cmpMetrics(lsT), B=cmpMetrics(lsM);
+    const rows=['右肘','左肘','右手高','左手高','右膝','左膝','肩傾き','腰傾き'];
+    const tol={'右肘':18,'左肘':18,'右手高':22,'左手高':22,'右膝':18,'左膝':18,'肩傾き':5,'腰傾き':5};
+    document.getElementById('cmp-diff-body').innerHTML=rows.map(k=>{
+        const a=A?.[k], b=B?.[k];
+        if(a==null||b==null)
+            return `<tr><td class="nm">${k}</td><td>${a??'―'}</td><td>${b??'―'}</td><td>―</td></tr>`;
+        const d=Math.abs(a-b), t=tol[k];
+        const cls=d<t?'d-ok':d<t*2?'d-mid':'d-bad';
+        const mk=d<t?'✓':d<t*2?'△':'✗';
+        return `<tr><td class="nm">${k}</td><td>${Math.round(a)}</td><td>${Math.round(b)}</td>`
+              +`<td class="${cls}">${mk} ${Math.round(d)}</td></tr>`;
+    }).join('');
+}
+
+// ── 出入り ──────────────────────────────────────────────────
+async function cmpEnter(){
+    // 通常モードのループとカメラを止めてから比較用を起動する
+    cancelAnimationFrame(camRafId); cancelAnimationFrame(vidRafId);
+    camVideo.srcObject?.getTracks().forEach(t=>t.stop());
+    fileVideo.pause();
+    await landmarker.setOptions({runningMode:'VIDEO'});
+    if(!landmarkerB){
+        const vision=await FilesetResolver.forVisionTasks(
+            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+        landmarkerB=await PoseLandmarker.createFromOptions(vision,{
+            baseOptions:{
+                modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+                delegate:'GPU'
+            },
+            runningMode:'VIDEO',numPoses:1,
+            minPoseDetectionConfidence:0.5,minTrackingConfidence:0.5
+        });
+    }
+    try{
+        cmpStream=await navigator.mediaDevices.getUserMedia({
+            video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},audio:false});
+        cmpCam.srcObject=cmpStream; await cmpCam.play();
+    }catch(e){}
+    if(cmpRaf) cancelAnimationFrame(cmpRaf);
+    cmpLoop();
+}
+async function cmpExit(){
+    if(cmpRaf){ cancelAnimationFrame(cmpRaf); cmpRaf=null; }
+    cmpStream?.getTracks().forEach(t=>t.stop()); cmpStream=null;
+    cmpVid.pause();
+    // 元のモードを再開する
+    const m=mode; mode='__none__'; await switchMode(m);
+}
+
+// ── 操作 ────────────────────────────────────────────────────
+window.pickTeacher=function pickTeacher(){ document.getElementById('cmp-file').click(); };
+document.getElementById('cmp-file').addEventListener('change',e=>{
+    const f=e.target.files?.[0]; if(!f) return;
+    cmpVid.src=URL.createObjectURL(f);
+    cmpVid.onloadedmetadata=()=>{
+        document.getElementById('cmp-L-empty').style.display='none';
+        cmpVid.currentTime=0;
+    };
+});
+window.cmpPlay=function cmpPlay(){
+    const b=document.getElementById('cmp-play');
+    if(!cmpVid.src){ pickTeacher(); return; }
+    if(cmpVid.paused){ cmpVid.play(); b.textContent='⏸ 停止'; }
+    else{ cmpVid.pause(); b.textContent='▶ 再生'; }
+};
+window.cmpStep=function cmpStep(dir){
+    if(!cmpVid.src) return;
+    cmpVid.pause(); document.getElementById('cmp-play').textContent='▶ 再生';
+    cmpVid.currentTime=Math.max(0,Math.min(cmpVid.duration||0,cmpVid.currentTime+dir*frameStep));
+};
+window.cmpSlow=function cmpSlow(){
+    const b=document.getElementById('cmp-slow');
+    cmpVid.playbackRate = cmpVid.playbackRate===1 ? 0.5 : 1;
+    b.classList.toggle('on',cmpVid.playbackRate!==1);
+    b.textContent = cmpVid.playbackRate===1 ? '🐢 0.5x' : '🐇 等速に戻す';
+};
+window.cmpCropSet=function cmpCropSet(c){
+    cmpCrop=c;
+    document.querySelectorAll('.cbtn.crop').forEach(b=>b.classList.toggle('on',b.dataset.crop===c));
+};
+window.cmpMirrorTgl=function cmpMirrorTgl(){
+    cmpMirror=!cmpMirror;
+    document.getElementById('cmp-mir').classList.toggle('on',cmpMirror);
+};
+let cmpSeekDrag=false;
+const cmpSeekEl=document.getElementById('cmp-seek');
+['pointerdown','touchstart','mousedown'].forEach(ev=>
+    cmpSeekEl.addEventListener(ev,()=>{cmpSeekDrag=true;},{passive:true}));
+['pointerup','touchend','mouseup','change'].forEach(ev=>
+    cmpSeekEl.addEventListener(ev,()=>{cmpSeekDrag=false;}));
+cmpSeekEl.addEventListener('input',()=>{
+    if(cmpVid.duration) cmpVid.currentTime=(cmpSeekEl.value/100)*cmpVid.duration;
+});
 
 // ── 初期化 ──────────────────────────────────────────────────
 async function init(){
