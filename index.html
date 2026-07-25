@@ -467,7 +467,7 @@
         #cmp-panes{flex:1 1 auto;display:flex;gap:2px;min-height:0}
         /* 縦長画面（iPad mini縦・スマホ縦）ではペインを上下に並べる */
         @media (max-aspect-ratio:1/1){
-            #cmp-panes{flex-direction:column}
+            #cmp-panes{flex-direction:column; flex:0 0 auto; height:52vh}
         }
         .cmp-pane{
             flex:1;position:relative;min-width:0;overflow:hidden;
@@ -487,10 +487,10 @@
         /* 差分テーブル */
         /* 操作バー */
         #cmp-ctrl{
-            flex:0 0 auto;display:flex;flex-wrap:wrap;gap:5px;
-            justify-content:center;align-items:center;padding:6px 6px 10px;
-            background:rgba(0,0,0,.92);
-            max-height:44vh;overflow-y:auto;
+            flex:1 1 auto;display:flex;flex-wrap:wrap;gap:5px;
+            justify-content:center;align-content:flex-start;align-items:center;
+            padding:6px 6px 10px;background:rgba(0,0,0,.92);
+            overflow-y:auto;min-height:0;
             padding-bottom:calc(10px + env(safe-area-inset-bottom))
         }
         .cbtn{
