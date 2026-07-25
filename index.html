@@ -493,10 +493,6 @@
         .hint.bad{background:rgba(255,82,82,.18);border-color:#ff5252;color:#ff8a80}
         .hint.mid{background:rgba(255,213,79,.15);border-color:#ffd54f;color:#ffd54f}
         .hint .adv{font-size:11px;font-weight:400;opacity:.85}
-        .hint-ok{
-            font-size:13px;color:#69f0ae;font-weight:700;
-            background:rgba(0,230,118,.15);padding:4px 14px;border-radius:14px
-        }
         .hint-none{font-size:11px;color:rgba(255,255,255,.35)}
         /* 操作バー */
         #cmp-ctrl{
@@ -2427,7 +2423,7 @@ function cmpRenderHints(status){
         .slice(0,4);
     if(!bad.length){
         cmpLastHints=[];
-        el.innerHTML='<span class="hint-ok">✓ 先生とよく合っています</span>';
+        el.innerHTML='';
         return;
     }
     cmpLastHints=bad.map(([n,s])=>({name:n,adv:s.adv,level:s.level}));
@@ -2558,8 +2554,7 @@ function cmpDrawRecFrame(){
     c.fillStyle='rgba(255,255,255,.06)'; c.fillRect(0,paneH,W,H-paneH);
     c.textAlign='center';
     if(!cmpLastHints.length){
-        c.font='bold 30px sans-serif'; c.fillStyle='#69f0ae';
-        c.fillText('✓ 先生とよく合っています', W/2, paneH+95);
+        // ズレが許容内のときは何も表示しない
     }else{
         c.font='bold 26px sans-serif';
         const n=cmpLastHints.length, cw=W/n;
