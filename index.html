@@ -533,6 +533,8 @@
         .cbtn.rec-on{background:#ff1744;color:#fff;border-color:transparent;font-weight:700}
         /* 手本ライブラリ・型の区切りパネル */
     </style>
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client"></script>
 </head>
 <body class="route-learn">
 <div id="app">
@@ -623,6 +625,7 @@
             <div class="cmp-row">
                 <span class="cmp-cap">先生:</span>
                 <button class="cbtn" onclick="pickTeacher()">🎬 動画を選ぶ</button>
+                <button class="cbtn" onclick="pickTeacherDrive()">☁ Driveから</button>
                 <button class="cbtn crop on" data-crop="full"  onclick="cmpCropSet('full')">全体</button>
                 <button class="cbtn crop"    data-crop="left"  onclick="cmpCropSet('left')">左半分</button>
                 <button class="cbtn crop"    data-crop="right" onclick="cmpCropSet('right')">右半分</button>
@@ -2607,6 +2610,86 @@ async function cmpExit(){
 
 // ── 操作 ────────────────────────────────────────────────────
 window.pickTeacher=function pickTeacher(){ document.getElementById('cmp-file').click(); };
+
+// ================================================================
+//  Google Drive から先生の動画を選ぶ（OAuth + Picker）
+// ================================================================
+const GDRIVE_CLIENT_ID='441860642281-e653h4hkhpgeasf6pdsppq3c46v6petk.apps.googleusercontent.com';
+const GDRIVE_API_KEY='AIzaSyDMMiOZbb93akArzmidrht0yAzSMd-j65A';
+const GDRIVE_SCOPE='https://www.googleapis.com/auth/drive.readonly';
+let gdrivePickerReady=false, gdriveToken=null, gdriveTokenClient=null;
+
+function gdriveLoadPicker(){
+    return new Promise(res=>{
+        if(gdrivePickerReady){ res(); return; }
+        gapi.load('picker',()=>{ gdrivePickerReady=true; res(); });
+    });
+}
+function gdriveEnsureToken(){
+    return new Promise((res,rej)=>{
+        if(gdriveToken){ res(gdriveToken); return; }
+        if(!gdriveTokenClient){
+            gdriveTokenClient=google.accounts.oauth2.initTokenClient({
+                client_id:GDRIVE_CLIENT_ID, scope:GDRIVE_SCOPE,
+                callback:(r)=>{
+                    if(r.error){ rej(r); return; }
+                    gdriveToken=r.access_token; res(gdriveToken);
+                }
+            });
+        }
+        gdriveTokenClient.requestAccessToken({prompt:''});
+    });
+}
+
+window.pickTeacherDrive=async function pickTeacherDrive(){
+    if(typeof gapi==='undefined'||typeof google==='undefined'){
+        alert('Google のスクリプトがまだ読み込まれていません。少し待って再度お試しください。');
+        return;
+    }
+    try{
+        await gdriveEnsureToken();
+        await gdriveLoadPicker();
+        const view=new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS)
+            .setIncludeFolders(true).setSelectFolderEnabled(false);
+        const picker=new google.picker.PickerBuilder()
+            .setOAuthToken(gdriveToken)
+            .setDeveloperKey(GDRIVE_API_KEY)
+            .addView(view)
+            .setCallback(gdrivePicked)
+            .build();
+        picker.setVisible(true);
+    }catch(e){
+        alert('Google Drive に接続できませんでした。ログインと権限の許可が必要です。');
+    }
+};
+
+async function gdrivePicked(data){
+    if(data.action!==google.picker.Action.PICKED) return;
+    const doc=data.docs[0]; if(!doc) return;
+    const url=`https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`;
+    // 進捗表示のためにいったん枠を出す
+    const empty=document.getElementById('cmp-L-empty');
+    if(empty){ empty.style.display='flex';
+        empty.innerHTML='<span style="font-size:26px">☁</span>Drive から読み込み中…'; }
+    try{
+        const resp=await fetch(url,{headers:{Authorization:'Bearer '+gdriveToken}});
+        if(!resp.ok) throw new Error(resp.status);
+        const blob=await resp.blob();
+        cmpVid.src=URL.createObjectURL(blob);
+        cmpVid.onloadedmetadata=()=>{
+            if(empty) empty.style.display='none';
+            cmpVid.currentTime=0;
+            if(cmpVid.videoWidth/Math.max(1,cmpVid.videoHeight) > 1.9) cmpCropSet('left');
+            cmpApplyAudio();
+            cmpVid.play().then(()=>{
+                document.getElementById('cmp-play').textContent='⏸ 停止';
+            }).catch(()=>{});
+        };
+    }catch(e){
+        if(empty){ empty.innerHTML='<span style="font-size:26px">⚠</span>読み込めませんでした'
+            +'<button class="cbtn main" onclick="pickTeacherDrive()">やり直す</button>'; }
+    }
+}
 document.getElementById('cmp-file').addEventListener('change',e=>{
     const f=e.target.files?.[0]; if(!f) return;
     cmpVid.src=URL.createObjectURL(f);
