@@ -2618,6 +2618,7 @@ const GDRIVE_CLIENT_ID='441860642281-e653h4hkhpgeasf6pdsppq3c46v6petk.apps.googl
 const GDRIVE_API_KEY='AIzaSyDMMiOZbb93akArzmidrht0yAzSMd-j65A';
 const GDRIVE_SCOPE='https://www.googleapis.com/auth/drive.readonly';
 let gdrivePickerReady=false, gdriveToken=null, gdriveTokenClient=null;
+let cmpTeacherFile=null;
 
 function gdriveLoadPicker(){
     return new Promise(res=>{
@@ -2666,15 +2667,33 @@ window.pickTeacherDrive=async function pickTeacherDrive(){
 async function gdrivePicked(data){
     if(data.action!==google.picker.Action.PICKED) return;
     const doc=data.docs[0]; if(!doc) return;
-    const url=`https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`;
-    // 進捗表示のためにいったん枠を出す
+    // APIキーはURLに付けず、Authorizationヘッダーだけで取得する（キー制限に依存しない）
+    const url=`https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media&supportsAllDrives=true`;
     const empty=document.getElementById('cmp-L-empty');
-    if(empty){ empty.style.display='flex';
-        empty.innerHTML='<span style="font-size:26px">☁</span>Drive から読み込み中…'; }
+    const setMsg=(icon,msg,retry)=>{ if(!empty) return;
+        empty.style.display='flex';
+        empty.innerHTML=`<span style="font-size:26px">${icon}</span>${msg}`
+            +(retry?'<button class="cbtn main" onclick="pickTeacherDrive()">やり直す</button>':'');
+    };
+    setMsg('☁','Drive から読み込み中… 0%');
     try{
         const resp=await fetch(url,{headers:{Authorization:'Bearer '+gdriveToken}});
-        if(!resp.ok) throw new Error(resp.status);
-        const blob=await resp.blob();
+        if(!resp.ok){
+            let detail=resp.status;
+            try{ const j=await resp.json(); detail=j.error?.message||resp.status; }catch(_){}
+            throw new Error(detail);
+        }
+        // 進捗を出しながらダウンロード
+        const total=+(resp.headers.get('content-length')||0);
+        const reader=resp.body.getReader(); const chunks=[]; let got=0;
+        while(true){
+            const {done,value}=await reader.read();
+            if(done) break;
+            chunks.push(value); got+=value.length;
+            if(total) setMsg('☁',`Drive から読み込み中… ${Math.round(got/total*100)}%`);
+        }
+        const blob=new Blob(chunks,{type:doc.mimeType||'video/mp4'});
+        cmpTeacherFile=blob;
         cmpVid.src=URL.createObjectURL(blob);
         cmpVid.onloadedmetadata=()=>{
             if(empty) empty.style.display='none';
@@ -2685,9 +2704,9 @@ async function gdrivePicked(data){
                 document.getElementById('cmp-play').textContent='⏸ 停止';
             }).catch(()=>{});
         };
+        cmpVid.onerror=()=>setMsg('⚠','動画を再生できませんでした（形式が未対応の可能性）',true);
     }catch(e){
-        if(empty){ empty.innerHTML='<span style="font-size:26px">⚠</span>読み込めませんでした'
-            +'<button class="cbtn main" onclick="pickTeacherDrive()">やり直す</button>'; }
+        setMsg('⚠','読み込めませんでした：'+(e.message||e),true);
     }
 }
 document.getElementById('cmp-file').addEventListener('change',e=>{
