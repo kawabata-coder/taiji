@@ -531,53 +531,7 @@
         }
         .cmp-cap{font-size:10px;color:rgba(255,255,255,.45);flex:0 0 auto}
         .cbtn.rec-on{background:#ff1744;color:#fff;border-color:transparent;font-weight:700}
-        #cmp-chap{
-            font-size:11px;padding:6px 8px;border-radius:8px;max-width:150px;
-            background:rgba(255,255,255,.14);color:#fff;
-            border:1px solid rgba(255,255,255,.2)
-        }
         /* 手本ライブラリ・型の区切りパネル */
-        .ov-panel{
-            position:absolute;inset:0;z-index:40;display:none;
-            background:rgba(0,0,0,.95);overflow-y:auto;padding:14px 12px 70px
-        }
-        .ov-panel.show{display:block}
-        .ov-head{
-            display:flex;justify-content:space-between;align-items:center;
-            font-size:16px;font-weight:700;margin-bottom:10px
-        }
-        .ov-note{
-            font-size:11px;color:rgba(255,255,255,.55);line-height:1.7;margin-bottom:10px
-        }
-        .ov-btns{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap}
-        .mp-row,.ch-row{
-            display:flex;align-items:center;gap:7px;padding:7px 9px;margin-bottom:5px;
-            background:rgba(255,255,255,.06);border-radius:9px
-        }
-        .mp-info{flex:1;min-width:0}
-        .mp-name{font-size:13px;font-weight:700}
-        .mp-sub{font-size:10px;color:rgba(255,255,255,.45);margin-top:2px}
-        .mp-empty{font-size:12px;color:rgba(255,255,255,.4);padding:14px 4px;line-height:1.7}
-        .ch-sel{
-            width:100%;min-width:0;font-size:12px;padding:5px 6px;border-radius:7px;
-            background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2)
-        }
-        .ch-t{font-size:10px;color:rgba(255,255,255,.5);flex:0 0 auto}
-        .ch-cap{
-            flex:0 0 96px;width:96px;border-radius:5px;display:block;
-            border:1px solid rgba(255,255,255,.2);background:#fff
-        }
-        .ch-nocap{
-            height:34px;display:flex;align-items:center;justify-content:center;
-            font-size:9px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.06)
-        }
-        .ch-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-        #det-box{
-            background:rgba(255,255,255,.07);border-radius:9px;padding:10px;margin-bottom:12px
-        }
-        #det-txt{font-size:11px;color:rgba(255,255,255,.8);margin-bottom:7px}
-        #det-prog{height:6px;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden;margin-bottom:8px}
-        #det-prog i{display:block;height:100%;width:0%;background:#00e5ff;transition:width .1s}
     </style>
 </head>
 <body class="route-learn">
@@ -664,6 +618,7 @@
                 <button class="cbtn" onclick="cmpStep(1)">⏭</button>
                 <button class="cbtn" id="cmp-slow" onclick="cmpSlow()">🐢 0.5x</button>
                 <button class="cbtn" id="cmp-rec" onclick="cmpToggleRec()">● 録画</button>
+                <button class="cbtn on" id="cmp-aud" onclick="cmpAudioTgl()">🔊 先生の音</button>
             </div>
             <div class="cmp-row">
                 <span class="cmp-cap">先生:</span>
@@ -672,14 +627,6 @@
                 <button class="cbtn crop"    data-crop="left"  onclick="cmpCropSet('left')">左半分</button>
                 <button class="cbtn crop"    data-crop="right" onclick="cmpCropSet('right')">右半分</button>
                 <button class="cbtn on" id="cmp-cap" onclick="cmpCapTgl()">🏷 型名</button>
-            </div>
-            <div class="cmp-row">
-                <span class="cmp-cap">手本:</span>
-                <button class="cbtn" onclick="saveModel()">💾 保存</button>
-                <button class="cbtn" onclick="openModels()">📚 保存した手本</button>
-                <button class="cbtn" onclick="openChapters()">🔖 型の区切り</button>
-                <select id="cmp-chap" style="display:none"></select>
-                <button class="cbtn on" id="cmp-chaploop" onclick="chapLoopTgl()" style="display:none">🔁 くり返し</button>
             </div>
             <div class="cmp-row">
                 <span class="cmp-cap">自分:</span>
@@ -697,34 +644,6 @@
                 <button class="cbtn" onclick="cmpOffsetAdj(null)">リセット</button>
             </div>
         </div>
-        <!-- 保存した手本の一覧 -->
-        <div id="model-panel" class="ov-panel">
-            <div class="ov-head">📚 保存した手本
-                <button class="cbtn" onclick="closeModels()">✕</button></div>
-            <div id="model-list"></div>
-        </div>
-
-        <!-- 型の区切り -->
-        <div id="chap-panel" class="ov-panel">
-            <div class="ov-head">🔖 型の区切り
-                <button class="cbtn" onclick="closeChapters()">✕</button></div>
-            <div class="ov-note">
-                先生の動画はテロップが型ごとに切り替わります。その変化を探して自動で区切ります。<br>
-                検出後、型の割り当てが正しいか確認してください。
-            </div>
-            <div class="ov-btns">
-                <button class="cbtn main" onclick="detectChapters()">🔍 自動で区切りを検出</button>
-                <button class="cbtn" onclick="markChapter()">📍 今ここが開始</button>
-                <button class="cbtn" onclick="reassignChapters()">🔢 上から順に振り直す</button>
-            </div>
-            <div id="det-box" style="display:none">
-                <div id="det-txt">準備中…</div>
-                <div id="det-prog"><i id="det-bar"></i></div>
-                <button class="cbtn" onclick="abortDetect()">中止</button>
-            </div>
-            <div id="chap-list"></div>
-        </div>
-
         <input type="file" id="cmp-file"   accept="video/*" style="display:none">
         <input type="file" id="cmp-myfile" accept="video/*" style="display:none">
     </div>
@@ -2275,7 +2194,7 @@ const nextTs=prev=>{ const t=performance.now(); return t>prev ? t : prev+1; };
 let cmpCrop='full';                // 先生動画の切り出し（全体/左半分/右半分）
 let cmpMirror=false;               // 自分の映像を左右反転するか
 const cmpVid=document.createElement('video');   // 先生の動画（非表示）
-cmpVid.playsInline=true; cmpVid.muted=true; cmpVid.loop=true;
+cmpVid.playsInline=true; cmpVid.muted=false; cmpVid.loop=true;
 const cmpCam=document.createElement('video');   // 自分のカメラ（非表示）
 cmpCam.playsInline=true; cmpCam.autoplay=true; cmpCam.muted=true;
 
@@ -2390,7 +2309,6 @@ function cmpSrcRect(v){
 // ── 比較ループ ──────────────────────────────────────────────
 async function cmpLoop(){
     cmpRaf=requestAnimationFrame(cmpLoop);
-    if(detectRunning) return;   // 区切りの検出中は描画も検出も休ませる
     let lsT=null, lsM=null;
 
     // 左：先生
@@ -2434,10 +2352,17 @@ async function cmpLoop(){
         cmpDrawPose(ctxR,lsM,cr.width,cr.height,status);
         cmpRenderHints(status);
     }else{
+        // ライブ停止中・映像なしのときは案内を出す
+        if(cmpRightSrc==='cam'&&!cmpStream){
+            if(cr.width<10){ cr.width=480; cr.height=360; }
+            ctxR.fillStyle='#0b0b0d'; ctxR.fillRect(0,0,cr.width,cr.height);
+            ctxR.fillStyle='rgba(255,255,255,.4)';
+            ctxR.font='16px sans-serif'; ctxR.textAlign='center';
+            ctxR.fillText('カメラ停止中', cr.width/2, cr.height/2);
+        }
         cmpRenderHints(null);
     }
 
-    chapterKeep();       // 型を単独再生中なら区間内でくり返す
     cmpDrawRecFrame();   // 録画中のみ1枚に合成
 }
 
@@ -2516,19 +2441,34 @@ const cmpMyVid=document.createElement('video'); // 自分の動画（非表示�
 cmpMyVid.playsInline=true; cmpMyVid.muted=true; cmpMyVid.loop=true;
 
 window.cmpSetRight=function cmpSetRight(s){
+    // すでにライブ中にもう一度「ライブ」を押したらカメラを止める（トグル）
+    if(s==='cam' && cmpRightSrc==='cam'){ cmpCamTgl(); return; }
     cmpRightSrc=s;
     document.querySelectorAll('.cbtn.src').forEach(b=>b.classList.toggle('on',b.dataset.src===s));
     document.getElementById('cmp-mypick').style.display = s==='file'?'':'none';
     document.getElementById('cmp-offrow').style.display = s==='file'?'flex':'none';
     if(s==='file'){
         // カメラを止めて動画に切り替える
-        cmpStream?.getTracks().forEach(t=>t.stop()); cmpStream=null; cmpCam.srcObject=null;
+        cmpStopCam(); cmpSetCamBtn(false);
         if(!cmpMyVid.src) pickMine();
     }else{
         cmpMyVid.pause();
         cmpStartCam();
+        cmpSetCamBtn(true);
     }
 };
+function cmpStopCam(){
+    cmpStream?.getTracks().forEach(t=>t.stop()); cmpStream=null; cmpCam.srcObject=null;
+}
+// ライブのオン・オフを切り替える
+window.cmpCamTgl=function cmpCamTgl(){
+    if(cmpStream){ cmpStopCam(); cmpSetCamBtn(false); }
+    else{ cmpStartCam(); cmpSetCamBtn(true); }
+};
+function cmpSetCamBtn(on){
+    const b=document.querySelector('.cbtn.src[data-src=\"cam\"]');
+    if(b) b.textContent = on ? '📷 ライブ（停止）' : '📷 ライブ';
+}
 async function cmpStartCam(){
     if(cmpStream) return;
     try{
@@ -2631,286 +2571,7 @@ function cmpDrawRecFrame(){
     }
 }
 
-// ================================================================
-//  お手本ライブラリ（IndexedDB に動画と型の区切りを保存）
-// ================================================================
-const IDB_NAME='taiji-models', IDB_STORE='models';
-function idbOpen(){
-    return new Promise((res,rej)=>{
-        const r=indexedDB.open(IDB_NAME,1);
-        r.onupgradeneeded=()=>{
-            const d=r.result;
-            if(!d.objectStoreNames.contains(IDB_STORE)) d.createObjectStore(IDB_STORE,{keyPath:'id'});
-        };
-        r.onsuccess=()=>res(r.result);
-        r.onerror=()=>rej(r.error);
-    });
-}
-function idbTx(mode,fn){
-    return idbOpen().then(d=>new Promise((res,rej)=>{
-        const t=d.transaction(IDB_STORE,mode), s=t.objectStore(IDB_STORE);
-        let out; try{ out=fn(s); }catch(e){ rej(e); return; }
-        t.oncomplete=()=>res(out?.result??out);
-        t.onerror=()=>rej(t.error);
-    }));
-}
-const modelPut =rec=>idbTx('readwrite',s=>s.put(rec));
-const modelAll =()  =>idbTx('readonly', s=>s.getAll());
-const modelGet =id  =>idbTx('readonly', s=>s.get(id));
-const modelDel =id  =>idbTx('readwrite',s=>s.delete(id));
 
-let curModel=null;          // 読み込み中のお手本レコード
-let cmpTeacherFile=null;    // 直近に選んだ動画ファイル（保存用）
-
-// ── 保存 ────────────────────────────────────────────────────
-window.saveModel=async function saveModel(){
-    if(!cmpTeacherFile&&!curModel?.blob){ alert('先に先生の動画を読み込んでください'); return; }
-    const def=curModel?.name || cmpTeacherFile?.name?.replace(/\.[^.]+$/,'') || 'お手本';
-    const name=prompt('この手本の名前',def);
-    if(name===null) return;
-    const rec={
-        id: curModel?.id ?? ('m'+Date.now()),
-        name,
-        blob: cmpTeacherFile ?? curModel.blob,
-        chapters: curModel?.chapters ?? [],
-        crop: cmpCrop,
-        savedAt: Date.now()
-    };
-    try{
-        await modelPut(rec);
-        curModel=rec;
-        await renderModelList();
-        alert('保存しました');
-    }catch(e){ alert('保存できませんでした：'+e); }
-};
-
-// ── 一覧 ────────────────────────────────────────────────────
-window.openModels=async function openModels(){
-    await renderModelList();
-    document.getElementById('model-panel').classList.add('show');
-};
-window.closeModels=function closeModels(){
-    document.getElementById('model-panel').classList.remove('show');
-};
-async function renderModelList(){
-    const el=document.getElementById('model-list');
-    if(!el) return;
-    let list=[];
-    try{ list=await modelAll(); }catch(e){}
-    if(!list.length){
-        el.innerHTML='<div class="mp-empty">保存された手本はまだありません</div>';
-        return;
-    }
-    list.sort((a,b)=>b.savedAt-a.savedAt);
-    el.innerHTML=list.map(m=>{
-        const d=new Date(m.savedAt).toLocaleDateString('ja-JP');
-        const mb=(m.blob.size/1048576).toFixed(1);
-        return `<div class="mp-row">
-            <div class="mp-info">
-                <div class="mp-name">${m.name}</div>
-                <div class="mp-sub">型の区切り ${m.chapters.length}件 ・ ${mb}MB ・ ${d}</div>
-            </div>
-            <button class="cbtn main" onclick="loadModel('${m.id}')">読込</button>
-            <button class="cbtn" onclick="delModel('${m.id}')">削除</button>
-        </div>`;
-    }).join('');
-}
-window.loadModel=async function loadModel(id){
-    const m=await modelGet(id); if(!m) return;
-    curModel=m; cmpTeacherFile=null;
-    cmpVid.src=URL.createObjectURL(m.blob);
-    cmpVid.onloadedmetadata=()=>{
-        document.getElementById('cmp-L-empty').style.display='none';
-        cmpVid.currentTime=0;
-        if(m.crop) cmpCropSet(m.crop);
-        renderChapterSelect();
-        cmpVid.play().then(()=>{
-            document.getElementById('cmp-play').textContent='⏸ 停止';
-        }).catch(()=>{});
-    };
-    closeModels();
-};
-window.delModel=async function delModel(id){
-    if(!confirm('この手本を削除しますか？')) return;
-    await modelDel(id);
-    if(curModel?.id===id) curModel=null;
-    renderModelList();
-};
-
-// ================================================================
-//  型の区切り（チャプター）
-// ================================================================
-let chapLoopOn=true;      // 選んだ型の区間をくり返し再生するか
-let curChap=null;         // 単独再生中の型
-let detectAbort=false;
-let detectRunning=false;   // 区切りの自動検出中フラグ
-
-const seekTo=(v,t)=>new Promise(res=>{
-    let done=false;
-    const h=()=>{ if(done) return; done=true; v.removeEventListener('seeked',h); res(); };
-    v.addEventListener('seeked',h);
-    v.currentTime=t;
-    setTimeout(h,400);    // シークが返らない場合の保険
-});
-
-// ── テロップの切り替わりから型の区切りを自動検出 ──────────────
-window.detectChapters=async function detectChapters(){
-    if(!cmpVid.src||!cmpVid.duration){ alert('先に先生の動画を読み込んでください'); return; }
-    const bar=document.getElementById('det-bar'), box=document.getElementById('det-box');
-    box.style.display='block'; detectAbort=false; detectRunning=true;
-    const wasPlaying=!cmpVid.paused;
-    cmpVid.pause();
-
-    const cv=document.createElement('canvas'); cv.width=64; cv.height=16;
-    const c=cv.getContext('2d',{willReadFrequently:true});
-    const vw=cmpVid.videoWidth||1, vh=cmpVid.videoHeight||1;
-    const [rx,ry,rw,rh]=CAP_RECT;
-    const dur=cmpVid.duration, step=0.3, THRESH=14;
-    let prev=null, marks=[];
-
-    for(let t=0;t<dur&&!detectAbort;t+=step){
-        await seekTo(cmpVid,t);
-        c.drawImage(cmpVid, rx*vw,ry*vh,rw*vw,rh*vh, 0,0,cv.width,cv.height);
-        const d=c.getImageData(0,0,cv.width,cv.height).data;
-        if(prev){
-            let s=0;
-            for(let i=0;i<d.length;i+=4)
-                s+=Math.abs(d[i]-prev[i])+Math.abs(d[i+1]-prev[i+1])+Math.abs(d[i+2]-prev[i+2]);
-            if(s/(d.length/4*3) > THRESH) marks.push(t);
-        }
-        prev=d.slice();
-        bar.style.width=(t/dur*100).toFixed(1)+'%';
-        document.getElementById('det-txt').textContent=
-            `テロップの変化を探しています… ${fmt(t)} / ${fmt(dur)}（候補 ${marks.length}）`;
-    }
-    box.style.display='none'; detectRunning=false;
-    if(detectAbort) return;
-
-    // 近すぎる変化点はまとめる（フェードで複数回反応するため）
-    const merged=[];
-    for(const m of marks) if(!merged.length||m-merged[merged.length-1]>1.2) merged.push(m);
-    // 区間にして、短すぎるものは捨てる
-    let segs=merged.map((s,i)=>({start:s,end:(merged[i+1]??dur)}))
-                   .filter(s=>s.end-s.start>=2.0);
-    if(!segs.length){ alert('テロップの切り替わりを検出できませんでした。手動で登録してください。'); return; }
-
-    // 各区間のテロップを切り出して残す（どの型かを目で確かめられるように）
-    document.getElementById('det-txt').textContent='テロップを取り込んでいます…';
-    const cap=document.createElement('canvas'); cap.width=176; cap.height=Math.round(176*(rh*vh)/(rw*vw));
-    const cc=cap.getContext('2d');
-    const shots=[];
-    for(const s of segs.slice(0,FORMS.length)){
-        await seekTo(cmpVid, Math.min(s.end-0.2, s.start+0.6));
-        cc.drawImage(cmpVid, rx*vw,ry*vh,rw*vw,rh*vh, 0,0,cap.width,cap.height);
-        shots.push(cap.toDataURL('image/jpeg',0.75));
-    }
-    // 検出した順に第1式から割り当てる（テロップを見て画面で修正できる）
-    const chapters=segs.slice(0,FORMS.length).map((s,i)=>
-        ({no:FORMS[i].no,start:s.start,end:s.end,cap:shots[i]}));
-    curModel=curModel||{id:'m'+Date.now(),name:'お手本',blob:cmpTeacherFile,chapters:[],crop:cmpCrop,savedAt:Date.now()};
-    curModel.chapters=chapters;
-    renderChapters(); renderChapterSelect();
-    if(wasPlaying) cmpVid.play();
-    alert(`${chapters.length}件の区切りを検出しました。型の割り当てを確認してください。`);
-};
-window.abortDetect=function abortDetect(){ detectAbort=true; };
-
-// ── チャプター編集パネル ────────────────────────────────────
-window.openChapters=function openChapters(){
-    renderChapters();
-    document.getElementById('chap-panel').classList.add('show');
-};
-window.closeChapters=function closeChapters(){
-    document.getElementById('chap-panel').classList.remove('show');
-};
-function renderChapters(){
-    const el=document.getElementById('chap-list');
-    const chs=curModel?.chapters??[];
-    if(!chs.length){
-        el.innerHTML='<div class="mp-empty">区切りがありません。自動検出するか、動画を再生しながら「今ここが開始」で登録してください。</div>';
-        return;
-    }
-    const opts=no=>FORMS.map(f=>
-        `<option value="${f.no}" ${f.no===no?'selected':''}>第${f.no}式 ${f.name}</option>`).join('');
-    el.innerHTML=chs.map((ch,i)=>`
-        <div class="ch-row">
-            ${ch.cap?`<img class="ch-cap" src="${ch.cap}" alt="テロップ">`
-                    :'<span class="ch-cap ch-nocap">画像なし</span>'}
-            <div class="ch-main">
-                <select class="ch-sel" data-i="${i}">${opts(ch.no)}</select>
-                <span class="ch-t">${fmt(ch.start)}〜${fmt(ch.end)}</span>
-            </div>
-            <button class="cbtn" onclick="playChapter(${i})">▶</button>
-            <button class="cbtn" onclick="delChapter(${i})">✕</button>
-        </div>`).join('');
-    el.querySelectorAll('.ch-sel').forEach(s=>s.addEventListener('change',()=>{
-        curModel.chapters[+s.dataset.i].no=+s.value;
-        renderChapterSelect(); persistChapters();
-    }));
-}
-// 余分な行を消したあとに、残りを第1式から順に振り直す
-window.reassignChapters=function reassignChapters(){
-    const chs=curModel?.chapters; if(!chs?.length) return;
-    chs.sort((a,b)=>a.start-b.start);
-    chs.forEach((c,i)=>{ if(i<FORMS.length) c.no=FORMS[i].no; });
-    renderChapters(); renderChapterSelect(); persistChapters();
-};
-window.delChapter=function delChapter(i){
-    curModel.chapters.splice(i,1);
-    renderChapters(); renderChapterSelect(); persistChapters();
-};
-window.markChapter=function markChapter(){
-    if(!cmpVid.src) return;
-    curModel=curModel||{id:'m'+Date.now(),name:'お手本',blob:cmpTeacherFile,chapters:[],crop:cmpCrop,savedAt:Date.now()};
-    const t=cmpVid.currentTime;
-    curModel.chapters.push({no:FORMS[Math.min(curModel.chapters.length,FORMS.length-1)].no,
-                            start:t,end:cmpVid.duration});
-    curModel.chapters.sort((a,b)=>a.start-b.start);
-    // 前の区間の終わりを次の始まりに合わせる
-    curModel.chapters.forEach((c,i)=>{ c.end=curModel.chapters[i+1]?.start ?? cmpVid.duration; });
-    renderChapters(); renderChapterSelect(); persistChapters();
-};
-async function persistChapters(){
-    if(curModel?.id&&curModel.blob){ try{ await modelPut(curModel); }catch(e){} }
-}
-
-// ── 型を単独で再生する ──────────────────────────────────────
-function renderChapterSelect(){
-    const sel=document.getElementById('cmp-chap');
-    const chs=curModel?.chapters??[];
-    sel.innerHTML='<option value="-1">通しで再生</option>'+chs.map((ch,i)=>{
-        const f=FORMS.find(x=>x.no===ch.no);
-        return `<option value="${i}">第${ch.no}式 ${f?f.name:''}</option>`;
-    }).join('');
-    sel.style.display = chs.length ? '' : 'none';
-    document.getElementById('cmp-chaploop').style.display = chs.length ? '' : 'none';
-}
-window.playChapter=function playChapter(i){
-    const ch=curModel?.chapters?.[i]; if(!ch) return;
-    curChap=ch;
-    document.getElementById('cmp-chap').value=String(i);
-    cmpVid.currentTime=ch.start; cmpSyncMine(true);
-    cmpVid.play(); document.getElementById('cmp-play').textContent='⏸ 停止';
-    if(cmpRightSrc==='file'&&cmpMyVid.src) cmpMyVid.play();
-    closeChapters();
-};
-window.chapLoopTgl=function chapLoopTgl(){
-    chapLoopOn=!chapLoopOn;
-    document.getElementById('cmp-chaploop').classList.toggle('on',chapLoopOn);
-};
-document.getElementById('cmp-chap').addEventListener('change',e=>{
-    const i=+e.target.value;
-    if(i<0){ curChap=null; return; }
-    playChapter(i);
-});
-// 区間の終わりまで来たら先頭に戻す（cmpLoop から毎フレーム呼ばれる）
-function chapterKeep(){
-    if(!curChap||!chapLoopOn) return;
-    if(cmpVid.currentTime>=curChap.end-0.02){
-        cmpVid.currentTime=curChap.start;
-        cmpSyncMine(true);
-    }
-}
 
 // ── 出入り ──────────────────────────────────────────────────
 async function cmpEnter(){
@@ -2948,12 +2609,12 @@ async function cmpExit(){
 window.pickTeacher=function pickTeacher(){ document.getElementById('cmp-file').click(); };
 document.getElementById('cmp-file').addEventListener('change',e=>{
     const f=e.target.files?.[0]; if(!f) return;
-    cmpTeacherFile=f; curModel=null;      // 保存できるようファイルを覚えておく
     cmpVid.src=URL.createObjectURL(f);
     cmpVid.onloadedmetadata=()=>{
         document.getElementById('cmp-L-empty').style.display='none';
         cmpVid.currentTime=0;
         // 冒頭はタイトル画面のことが多いので、読み込んだらすぐ再生を始める
+        cmpApplyAudio();
         cmpVid.play().then(()=>{
             document.getElementById('cmp-play').textContent='⏸ 停止';
         }).catch(()=>{
@@ -2967,6 +2628,7 @@ window.cmpPlay=function cmpPlay(){
     const b=document.getElementById('cmp-play');
     if(!cmpVid.src){ pickTeacher(); return; }
     if(cmpVid.paused){
+        cmpApplyAudio();
         cmpVid.play(); b.textContent='⏸ 停止';
         if(cmpRightSrc==='file'&&cmpMyVid.src){ cmpSyncMine(true); cmpMyVid.play(); }
     }else{
@@ -2992,6 +2654,22 @@ window.cmpCropSet=function cmpCropSet(c){
     cmpCrop=c;
     document.querySelectorAll('.cbtn.crop').forEach(b=>b.classList.toggle('on',b.dataset.crop===c));
 };
+let cmpAudio='teacher';   // 'teacher' | 'me' | 'mute'
+window.cmpAudioTgl=function cmpAudioTgl(){
+    cmpAudio = cmpAudio==='teacher' ? 'me' : cmpAudio==='me' ? 'mute' : 'teacher';
+    cmpApplyAudio();
+    const b=document.getElementById('cmp-aud');
+    b.textContent = cmpAudio==='teacher' ? '🔊 先生の音'
+                  : cmpAudio==='me'      ? '🔊 自分の音' : '🔇 消音';
+    b.classList.toggle('on', cmpAudio!=='mute');
+};
+function cmpApplyAudio(){
+    cmpVid.muted   = cmpAudio!=='teacher';
+    cmpMyVid.muted = cmpAudio!=='me';
+    // ブラウザの自動再生制限で音が止められた場合に備え、再生を促す
+    if(cmpAudio==='teacher'&&!cmpVid.paused) cmpVid.play().catch(()=>{});
+    if(cmpAudio==='me'&&!cmpMyVid.paused)    cmpMyVid.play().catch(()=>{});
+}
 window.cmpCapTgl=function cmpCapTgl(){
     cmpCaption=!cmpCaption;
     document.getElementById('cmp-cap').classList.toggle('on',cmpCaption);
