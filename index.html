@@ -481,19 +481,6 @@
             text-align:center;padding:12px
         }
         /* 差分テーブル */
-        #cmp-diff{flex:0 0 auto;background:rgba(0,0,0,.88);padding:6px 8px;min-height:42px}
-        #cmp-hints{
-            display:flex;flex-wrap:wrap;gap:5px;justify-content:center;align-items:center
-        }
-        .hint{
-            display:inline-flex;align-items:center;gap:5px;
-            font-size:12px;padding:4px 10px;border-radius:14px;font-weight:600;
-            border:1.5px solid transparent
-        }
-        .hint.bad{background:rgba(255,82,82,.18);border-color:#ff5252;color:#ff8a80}
-        .hint.mid{background:rgba(255,213,79,.15);border-color:#ffd54f;color:#ffd54f}
-        .hint .adv{font-size:11px;font-weight:400;opacity:.85}
-        .hint-none{font-size:11px;color:rgba(255,255,255,.35)}
         /* 操作バー */
         #cmp-ctrl{
             flex:0 0 auto;display:flex;flex-wrap:wrap;gap:5px;
@@ -601,9 +588,6 @@
                             </div>
         </div>
 
-        <div id="cmp-diff">
-            <div id="cmp-hints"><span class="hint-none">先生と自分の骨格が揃うと、違う部分だけをここに出します</span></div>
-        </div>
 
         <div id="cmp-ctrl">
             <div id="cmp-seekwrap">
@@ -2412,24 +2396,12 @@ function cmpEvaluate(lsT,lsM){
 // ── 指摘チップを表示 ────────────────────────────────────────
 let cmpLastHints=[];
 function cmpRenderHints(status){
-    const el=document.getElementById('cmp-hints');
-    if(!status){
-        cmpLastHints=[];
-        el.innerHTML='<span class="hint-none">先生と自分の両方が映ると、違う部分だけをここに出します</span>';
-        return;
-    }
-    const bad=Object.entries(status).filter(([,s])=>s.level>0)
+    // 画面下の文字帯は廃止。骨格の色分け・円マークだけで示す。
+    if(!status){ cmpLastHints=[]; return; }
+    cmpLastHints=Object.entries(status).filter(([,s])=>s.level>0)
         .sort((a,b)=>b[1].level-a[1].level||b[1].diff-a[1].diff)
-        .slice(0,4);
-    if(!bad.length){
-        cmpLastHints=[];
-        el.innerHTML='';
-        return;
-    }
-    cmpLastHints=bad.map(([n,s])=>({name:n,adv:s.adv,level:s.level}));
-    el.innerHTML=bad.map(([n,s])=>
-        `<span class="hint ${s.level===2?'bad':'mid'}">${s.level===2?'●':'▲'} ${n}`
-       +`<span class="adv">${s.adv}</span></span>`).join('');
+        .slice(0,4)
+        .map(([n,s])=>({name:n,adv:s.adv,level:s.level}));
 }
 
 // ── 自分側のソース（ライブカメラ / 動画ファイル）────────────
@@ -2505,7 +2477,7 @@ window.cmpToggleRec=function cmpToggleRec(){
         return;
     }
     cmpRecCv=cmpRecCv||document.createElement('canvas');
-    cmpRecCv.width=1280; cmpRecCv.height=760;
+    cmpRecCv.width=1280; cmpRecCv.height=640;
     const stream=cmpRecCv.captureStream(30);
     const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
         .find(t=>MediaRecorder.isTypeSupported(t))||'video/webm';
@@ -2535,7 +2507,7 @@ window.cmpToggleRec=function cmpToggleRec(){
 function cmpDrawRecFrame(){
     if(!cmpRec||cmpRec.state!=='recording'||!cmpRecCv) return;
     const c=cmpRecCv.getContext('2d'), W=cmpRecCv.width, H=cmpRecCv.height;
-    const paneH=600, halfW=W/2;
+    const paneH=H, halfW=W/2;
     c.fillStyle='#000'; c.fillRect(0,0,W,H);
     const put=(cv,ox)=>{
         if(!cv||!cv.width) return;
@@ -2550,23 +2522,6 @@ function cmpDrawRecFrame(){
     c.fillStyle='rgba(255,255,255,.85)';
     c.fillText('先生', halfW/2, 34);
     c.fillText('自分', halfW+halfW/2, 34);
-    // 指摘（下部の帯）
-    c.fillStyle='rgba(255,255,255,.06)'; c.fillRect(0,paneH,W,H-paneH);
-    c.textAlign='center';
-    if(!cmpLastHints.length){
-        // ズレが許容内のときは何も表示しない
-    }else{
-        c.font='bold 26px sans-serif';
-        const n=cmpLastHints.length, cw=W/n;
-        cmpLastHints.forEach((h,i)=>{
-            const x=cw*i+cw/2;
-            c.fillStyle=h.level===2?'#ff8a80':'#ffd54f';
-            c.fillText((h.level===2?'● ':'▲ ')+h.name, x, paneH+72);
-            c.font='22px sans-serif'; c.fillStyle='rgba(255,255,255,.8)';
-            c.fillText(h.adv, x, paneH+112);
-            c.font='bold 26px sans-serif';
-        });
-    }
 }
 
 
