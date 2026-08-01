@@ -622,6 +622,7 @@
                 <button class="cbtn src on" data-src="cam"  onclick="cmpSetRight('cam')">📷 ライブ</button>
                 <button class="cbtn src"    data-src="file" onclick="cmpSetRight('file')">🎬 動画</button>
                 <button class="cbtn" id="cmp-mypick" onclick="pickMine()" style="display:none">📁 自分の動画を選ぶ</button>
+                <button class="cbtn" id="cmp-cam-face" onclick="cmpFlipCamera()">🔄 前面/背面</button>
                 <button class="cbtn" id="cmp-mir" onclick="cmpMirrorTgl()">🪞 反転</button>
                 <button class="cbtn on" id="cmp-ghost" onclick="cmpGhostTgl()">👻 手本を重ねる</button>
             </div>
@@ -2438,6 +2439,20 @@ function cmpStopCam(){
     cmpStream?.getTracks().forEach(t=>t.stop()); cmpStream=null; cmpCam.srcObject=null;
 }
 // ライブのオン・オフを切り替える
+window.cmpFlipCamera=function cmpFlipCamera(){
+    facing = facing==='environment' ? 'user' : 'environment';
+    const b=document.getElementById('cmp-cam-face');
+    if(b) b.textContent = facing==='user' ? '🤳 前面カメラ' : '📷 背面カメラ';
+    // 前面カメラは鏡像が自然なので自動で反転を合わせる
+    cmpMirror = (facing==='user');
+    document.getElementById('cmp-mir').classList.toggle('on',cmpMirror);
+    // ライブ表示中なら開き直す
+    if(cmpRightSrc==='cam'){
+        cmpStopCam();
+        cmpStartCam();
+        cmpSetCamBtn(true);
+    }
+};
 window.cmpCamTgl=function cmpCamTgl(){
     if(cmpStream){ cmpStopCam(); cmpSetCamBtn(false); }
     else{ cmpStartCam(); cmpSetCamBtn(true); }
